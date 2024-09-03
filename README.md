@@ -1,0 +1,3 @@
+- export CUDA_VISIBLE_DEVICES="0"
+- ssh -L 17007:127.0.0.1:7007 user@host
+- localhost:17007/
