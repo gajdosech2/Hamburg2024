@@ -111,10 +111,13 @@ def pixel_coordinates(outlier_cloud, labels, blob_heights, r):
     for i, height in blob_heights:
         height = height * 100
         index = -1
+        best = None
         for j, known_height in enumerate(KNOWN_HEIGHTS):
-            if height > known_height - 1.3 and height < known_height + 1.3:
-                index = j
-                break
+            current = abs(known_height - height)
+            if current < 1: 
+                if best == None or current < best:
+                    best = current
+                    index = j
 
         if index == -1:
             continue
@@ -152,7 +155,7 @@ def mark_classes(coords, rgb_image, known_names):
         cv2.circle(rgb_image, (u, v), radius=5, color=(0, 255, 0), thickness=2)  # Green circles with radius 5
         cv2.putText(rgb_image, known_names[index], (u, v), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 0, 0), 2, cv2.LINE_AA, False)
 
-    cv2.imwrite('work_dirs/debug/modified_rgb_image' + datetime.utcnow().strftime('%S.%f') + ".png", rgb_image)
+    cv2.imwrite('work_dirs/debug/modified_rgb_image' + datetime.utcnow().strftime('%H:%M:%S.%f') + ".png", rgb_image)
 
 
 def show_mask(mask, ax, random_color=False, borders=True):
@@ -321,19 +324,20 @@ def process_dataset():
 
 
     
-KNOWN_HEIGHTS = [8.0, 12.0, 13.5, 19.0, 23.5]
+KNOWN_HEIGHTS = [8.0-5.0, 12.0-4.0, 13.5-4.0, 19.0-5.0, 23.5-5.0]
 KNOWN_NAMES = ["shot_glass", "water_glass", "beer_glass", "wine_glass", "high_glass"]
 FX = FY = 525.0  # Focal length 
 CX = 1280 / 2      # Principal point (x-coordinate)
 CY = 720 / 2      # Principal point (y-coordinate)
 
+DEPTH_PATHS = ["data/11.npy"]
+RGB_PATHS = ["data/11.png"]
 DEPTH_PATHS = []
 RGB_PATHS = []
 
 for i in range(25):
     DEPTH_PATHS.append(f"Dataset1/scene_1_caps/head_depth_img/{i}.npy")
     RGB_PATHS.append(f"Dataset1/scene_1_transparent/head_frame_img/{i}.png")
-
 for i in range(25):
     DEPTH_PATHS.append(f"Dataset1/scene_2_caps/head_depth_img/{i}.npy")
     RGB_PATHS.append(f"Dataset1/scene_2_transparent/head_frame_img/{i}.png")
