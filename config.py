@@ -58,9 +58,9 @@ test_annotations_file = "coco_annotations.json"
 train_images_dir = ""
 test_images_dir = ""
 
-max_epochs = 50
+max_epochs = 1000
 lr = 0.01
-val_interval = checkpoint_interval = 5
+val_interval = checkpoint_interval = 500
 batch_size = 4
 num_workers = 4
 
@@ -80,7 +80,7 @@ env_cfg = dict(
 )
 timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
 vis_backends = [dict(type=TensorboardVisBackend) ]
-visualizer = dict(type=DetLocalVisualizer, vis_backends=None, name="visualizer")
+visualizer = dict(type=DetLocalVisualizer, vis_backends=vis_backends, name="visualizer")
 log_processor = dict(type=LogProcessor, window_size=50, by_epoch=True)
 
 log_level = "INFO"
@@ -155,7 +155,7 @@ model = dict(
 
 train_pipeline = [
     dict(type=LoadImageFromFile, backend_args=backend_args),
-    dict(type=LoadAnnotations, with_bbox=True, with_mask=False),
+    dict(type=LoadAnnotations, with_bbox=True, with_mask=True),
     dict(type=Resize, scale=(640, 640), keep_ratio=True),
     dict(type=Pad, size=(640, 640), pad_val=dict(img=(114, 114, 114))),
     # dict(type=CachedMosaic, img_scale=(640, 640), pad_val=114.0),
@@ -216,7 +216,7 @@ train_dataloader = dict(
 
 test_pipeline = [
     dict(type=LoadImageFromFile, backend_args=backend_args),
-    dict(type=LoadAnnotations, with_bbox=True, with_mask=False),
+    dict(type=LoadAnnotations, with_bbox=True, with_mask=True),
     dict(type=Resize, scale=(640, 640), keep_ratio=True),
     dict(type=Pad, size=(640, 640), pad_val=dict(img=(114, 114, 114))),
     dict(
@@ -262,11 +262,11 @@ val_cfg = dict(type=ValLoop)
 test_cfg = dict(type=TestLoop)
 
 param_scheduler = [
-    dict(type=LinearLR, start_factor=0.001, by_epoch=True, begin=0, end=5),
+    dict(type=LinearLR, start_factor=0.001, by_epoch=True, begin=0, end=50),
     dict(
         type=MultiStepLR,
         by_epoch=True,
-        milestones=[10, 25],
+        milestones=[100, 200, 500],
         gamma=0.1)
 ]
 
