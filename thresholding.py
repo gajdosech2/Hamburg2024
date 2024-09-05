@@ -7,10 +7,11 @@ from pycocotools import mask as mask_util
 import os
 import json
 import cv2
-os.chdir("/export/home/gajdosec/Hamburg2024")
+from datetime import datetime
+os.chdir("/home/g/gajdosech2/Hamburg2024")
 
 import sys
-sys.path.append("/export/home/gajdosec/segment-anything-2")
+sys.path.append("/home/g/gajdosech2/segment-anything-2")
 from sam2.build_sam import build_sam2
 from sam2.sam2_image_predictor import SAM2ImagePredictor
 
@@ -136,7 +137,7 @@ def pixel_coordinates(outlier_cloud, labels, blob_heights, r):
         v = (k[1, 1] * y / z) + k[1, 2]
         
         # Store the pixel coordinates (u, v) and the corresponding 3D centroid
-        coordinates.append((int(u), int(v)-50, index))
+        coordinates.append((int(u), int(v), index))
 
     for i, (u, v, index) in enumerate(coordinates):
         print(f"Blob {i}: Pixel coordinates: ({u}, {v}), Name: {KNOWN_NAMES[index]}")
@@ -151,7 +152,7 @@ def mark_classes(coords, rgb_image, known_names):
         cv2.circle(rgb_image, (u, v), radius=5, color=(0, 255, 0), thickness=2)  # Green circles with radius 5
         cv2.putText(rgb_image, known_names[index], (u, v), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 0, 0), 2, cv2.LINE_AA, False)
 
-    cv2.imwrite('work_dirs/modified_rgb_image.png', rgb_image)
+    cv2.imwrite('work_dirs/debug/modified_rgb_image' + datetime.utcnow().strftime('%S.%f') + ".png", rgb_image)
 
 
 def show_mask(mask, ax, random_color=False, borders=True):
@@ -186,7 +187,7 @@ def show_masks(image, masks, scores, borders=True):
 
 
 def segmentation_masks(rgb_image, coords):
-    sam2_checkpoint = "/export/home/gajdosec/segment-anything-2/checkpoints/sam2_hiera_large.pt"
+    sam2_checkpoint = "/home/g/gajdosech2/segment-anything-2/checkpoints/sam2_hiera_large.pt"
     model_cfg = "sam2_hiera_l.yaml"
 
     sam2_model = build_sam2(model_cfg, sam2_checkpoint, device=torch.device("cuda"))
@@ -230,13 +231,16 @@ def binary_mask_to_polygon(binary_mask):
 
     return polygons
 
-
 def process_dataset():
     # Initialize COCO JSON structure
     coco_json = {
         "images": [],
         "annotations": [],
-        "categories": [{"id": 1, "name": "shot_glass"}, {"id": 2, "name": "beer_glass"}, {"id": 3, "name": "wine_glass"}]  # Add more categories if needed
+        "categories": [{"id": 1, "name": "shot_glass"}, 
+                       {"id": 2, "name": "water_glass"}, 
+                       {"id": 3, "name": "beer_glass"}, 
+                       {"id": 4, "name": "wine_glass"},
+                       {"id": 5, "name": "high_glass"}]  # Add more categories if needed
     }
 
     # Placeholder for annotation ID
@@ -250,6 +254,7 @@ def process_dataset():
         cv2.imwrite("work_dirs/rgb.png", rgb_image)
 
         depth_array = np.load(depth_image_path)
+        depth_array = cv2.resize(depth_array, (640, 360)) 
         depth_normalized = (depth_array-np.min(depth_array))/(np.max(depth_array)-np.min(depth_array))
         cv2.imwrite("work_dirs/depth.png", depth_normalized * 255)
 
@@ -291,7 +296,7 @@ def process_dataset():
             x, y, w, h = cv2.boundingRect(mask.astype(np.uint8))
 
             # Convert mask to format for COCO
-            rle_mask = binary_mask_to_rle(mask)
+            # rle_mask = binary_mask_to_rle(mask)
             polygons = binary_mask_to_polygon(mask)
 
             # Add annotation data for the object
@@ -316,12 +321,21 @@ def process_dataset():
 
 
     
-KNOWN_HEIGHTS = [8.0, 13.5, 19.0]
-KNOWN_NAMES = ["shot_glass", "beer_glass", "wine_glass"]
+KNOWN_HEIGHTS = [8.0, 12.0, 13.5, 19.0, 23.5]
+KNOWN_NAMES = ["shot_glass", "water_glass", "beer_glass", "wine_glass", "high_glass"]
 FX = FY = 525.0  # Focal length 
-CX = 319.5      # Principal point (x-coordinate)
-CY = 239.5      # Principal point (y-coordinate)
-DEPTH_PATHS = ["data/10.npy"]
-RGB_PATHS = ["data/10.png"]
+CX = 1280 / 2      # Principal point (x-coordinate)
+CY = 720 / 2      # Principal point (y-coordinate)
+
+DEPTH_PATHS = []
+RGB_PATHS = []
+
+for i in range(25):
+    DEPTH_PATHS.append(f"Dataset1/scene_1_caps/head_depth_img/{i}.npy")
+    RGB_PATHS.append(f"Dataset1/scene_1_transparent/head_frame_img/{i}.png")
+
+for i in range(25):
+    DEPTH_PATHS.append(f"Dataset1/scene_2_caps/head_depth_img/{i}.npy")
+    RGB_PATHS.append(f"Dataset1/scene_2_transparent/head_frame_img/{i}.png")
 
 process_dataset()
