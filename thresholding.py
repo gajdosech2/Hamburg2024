@@ -63,7 +63,7 @@ def find_rotation(a, b, c):
     return o3d.geometry.get_rotation_matrix_from_axis_angle(rotation_axis * angle)
 
 
-def threshold_blobs(outlier_cloud):
+def threshold_blobs(outlier_cloud, a, b, c, d):
     labels = np.array(outlier_cloud.cluster_dbscan(eps=0.02, min_points=1000, print_progress=True))
 
     # Number of clusters
@@ -99,18 +99,18 @@ def threshold_blobs(outlier_cloud):
     return labels, blob_heights
 
 
-def pixel_coordinates(outlier_cloud, blob_heights, known_heights, known_names):
-    K = np.array([[FX, 0, CX],
+def pixel_coordinates(outlier_cloud, labels, blob_heights, r):
+    k = np.array([[FX, 0, CX],
               [0, FY, CY],
               [0,  0,  1]])
 
-    R_inv = np.linalg.inv(r)
+    r_inv = np.linalg.inv(r)
     coordinates = []
 
     for i, height in blob_heights:
         height = height * 100
         index = -1
-        for j, known_height in enumerate(known_heights):
+        for j, known_height in enumerate(KNOWN_HEIGHTS):
             if height > known_height - 1.3 and height < known_height + 1.3:
                 index = j
                 break
@@ -126,20 +126,20 @@ def pixel_coordinates(outlier_cloud, blob_heights, known_heights, known_names):
         
         # Calculate the centroid of the blob (center of gravity)
         centroid = np.mean(cluster_points, axis=0)
-        original_centroid = np.dot(R_inv, centroid)
+        original_centroid = np.dot(r_inv, centroid)
         
         # Extract the 3D coordinates of the original centroid (X, Y, Z)
-        X, Y, Z = original_centroid
+        x, y, z = original_centroid
         
         # Project the 3D centroid to 2D pixel coordinates using the intrinsic matrix
-        u = (K[0, 0] * X / Z) + K[0, 2]
-        v = (K[1, 1] * Y / Z) + K[1, 2]
+        u = (k[0, 0] * x / z) + k[0, 2]
+        v = (k[1, 1] * y / z) + k[1, 2]
         
         # Store the pixel coordinates (u, v) and the corresponding 3D centroid
         coordinates.append((int(u), int(v)-50, index))
 
     for i, (u, v, index) in enumerate(coordinates):
-        print(f"Blob {i}: Pixel coordinates: ({u}, {v}), Name: {known_names[index]}")
+        print(f"Blob {i}: Pixel coordinates: ({u}, {v}), Name: {KNOWN_NAMES[index]}")
 
     return np.array(coordinates)
 
@@ -148,11 +148,9 @@ def mark_classes(coords, rgb_image, known_names):
     # Iterate through the list of pixel coordinates (u, v) and draw circles on the image
     for i, (u, v, index) in enumerate(coords):
         # Draw a circle on the RGB image at (u, v)
-        # Parameters: image, center_coordinates, radius, color (BGR format), thickness
         cv2.circle(rgb_image, (u, v), radius=5, color=(0, 255, 0), thickness=2)  # Green circles with radius 5
         cv2.putText(rgb_image, known_names[index], (u, v), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 0, 0), 2, cv2.LINE_AA, False)
 
-    # Save the modified image to a file (replace 'output_image_path' with your desired output path)
     cv2.imwrite('work_dirs/modified_rgb_image.png', rgb_image)
 
 
@@ -177,7 +175,7 @@ def show_masks(image, masks, scores, borders=True):
     mask_image = None
     for i, (mask, score) in enumerate(zip(masks, scores)):
         plt.figure(figsize=(10, 10))
-        # plt.imshow(image)
+        plt.imshow(image)
         mask_image = show_mask(mask, plt.gca(), borders=borders)
         if len(scores) > 1:
             plt.title(f"Mask {i+1}, Score: {score:.3f}", fontsize=18)
@@ -217,6 +215,22 @@ def binary_mask_to_rle(binary_mask):
     return rle
 
 
+def binary_mask_to_polygon(binary_mask):
+    # Ensure the mask is uint8 (required for findContours)
+    binary_mask = binary_mask.astype(np.uint8)
+    # Find contours in the mask (external contours only)
+    contours, _ = cv2.findContours(binary_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+
+    polygons = []
+    for contour in contours:
+        # Flatten the contour array and convert it to a list of x, y coordinates
+        contour = contour.flatten().tolist()
+        if len(contour) >= 6:  # Minimum 3 points (6 values) to form a polygon
+            polygons.append(contour)
+
+    return polygons
+
+
 def process_dataset():
     # Initialize COCO JSON structure
     coco_json = {
@@ -230,13 +244,11 @@ def process_dataset():
 
     for image_id, (rgb_image_path, depth_image_path) in enumerate(zip(RGB_PATHS, DEPTH_PATHS)):
         # Load RGB and depth images
-
         rgb_image = Image.open(rgb_image_path)
         rgb_image = np.array(rgb_image)
         rgb_image = cv2.resize(rgb_image, (640, 360)) 
         cv2.imwrite("work_dirs/rgb.png", rgb_image)
 
-        depth_image = cv2.imread(depth_image_path, cv2.IMREAD_UNCHANGED)  # Ensure depth is loaded properly
         depth_array = np.load(depth_image_path)
         depth_normalized = (depth_array-np.min(depth_array))/(np.max(depth_array)-np.min(depth_array))
         cv2.imwrite("work_dirs/depth.png", depth_normalized * 255)
@@ -264,12 +276,12 @@ def process_dataset():
         inlier_cloud.paint_uniform_color([0, 0, 1]) 
 
         outlier_cloud = pcd.select_by_index(inliers, invert=True)
-        labels, blob_heights = threshold_blobs(outlier_cloud)
+        labels, blob_heights = threshold_blobs(outlier_cloud, a, b, c, d)
 
         axis_gizmo = o3d.geometry.TriangleMesh.create_coordinate_frame(size=0.1, origin=[0, 0, 0])
         o3d.visualization.draw_geometries([inlier_cloud, outlier_cloud, axis_gizmo])
 
-        coords = pixel_coordinates(outlier_cloud, blob_heights, KNOWN_HEIGHTS, KNOWN_NAMES)
+        coords = pixel_coordinates(outlier_cloud, labels, blob_heights, r)
         all_masks = segmentation_masks(rgb_image, coords)
 
         for mask_id, mask in enumerate(all_masks):
@@ -277,8 +289,9 @@ def process_dataset():
             # Create bounding box from mask
             x, y, w, h = cv2.boundingRect(mask.astype(np.uint8))
 
-            # Convert mask to RLE format for COCO
+            # Convert mask to format for COCO
             rle_mask = binary_mask_to_rle(mask)
+            polygons = binary_mask_to_polygon(mask)
 
             # Add annotation data for the object
             coco_json["annotations"].append({
@@ -286,7 +299,7 @@ def process_dataset():
                 "image_id": image_id,
                 "category_id": int(coords[mask_id][2] + 1),  # Assuming single category, you can extend for multiple categories
                 "bbox": [x, y, w, h],
-                "segmentation": rle_mask,
+                "segmentation": polygons,
                 "area": int(np.sum(mask)),  # Area is the number of pixels in the mask
                 "iscrowd": 0
             })
