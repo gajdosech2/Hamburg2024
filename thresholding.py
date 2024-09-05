@@ -257,8 +257,8 @@ def process_dataset():
         coco_json["images"].append({
             "id": image_id,
             "file_name": rgb_image_path,  # Store the file name, not the full path
-            "width": rgb_image.shape[1],  # Image width
-            "height": rgb_image.shape[0]  # Image height
+            "width": rgb_image.shape[1] * 2,  # Image width
+            "height": rgb_image.shape[0] * 2  # Image height
         })
 
         pc = depth_2_pc(FX, FY, CX, CY, depth_array)
@@ -286,6 +286,7 @@ def process_dataset():
 
         for mask_id, mask in enumerate(all_masks):
             mask = mask.astype(np.uint8)
+            mask = cv2.resize(mask, (1280, 720), interpolation = cv2.INTER_NEAREST)
             # Create bounding box from mask
             x, y, w, h = cv2.boundingRect(mask.astype(np.uint8))
 
@@ -318,8 +319,8 @@ def process_dataset():
 KNOWN_HEIGHTS = [8.0, 13.5, 19.0]
 KNOWN_NAMES = ["shot_glass", "beer_glass", "wine_glass"]
 FX = FY = 525.0  # Focal length 
-CX = 319.5       # Principal point (x-coordinate)
-CY = 239.5       # Principal point (y-coordinate)
+CX = 319.5      # Principal point (x-coordinate)
+CY = 239.5      # Principal point (y-coordinate)
 DEPTH_PATHS = ["data/10.npy"]
 RGB_PATHS = ["data/10.png"]
 
