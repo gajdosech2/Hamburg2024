@@ -42,7 +42,6 @@ def fit_plane(pcd):
     # Extract the plane model coefficients
     [a, b, c, d] = plane_model
     print(f"Plane equation: {a:.2f}x + {b:.2f}y + {c:.2f}z + {d:.2f} = 0")
-
     return a, b, c, d, inliers
 
 
@@ -154,7 +153,7 @@ def mark_classes(coords, rgb_image, known_names):
         cv2.putText(rgb_image, known_names[index], (u, v), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 0, 0), 2, cv2.LINE_AA, False)
 
     # Save the modified image to a file (replace 'output_image_path' with your desired output path)
-    cv2.imwrite('modified_rgb_image.png', rgb_image)
+    cv2.imwrite('work_dirs/modified_rgb_image.png', rgb_image)
 
 
 def show_mask(mask, ax, random_color=False, borders=True):
@@ -207,7 +206,7 @@ def segmentation_masks(rgb_image, coords):
 
         all_masks.append(masks[0])
         mask_image = show_masks(rgb_image, masks, scores, borders=True)
-        cv2.imwrite("mask" + str(i) + ".png", rgb_image + mask_image[:, :, :3] * 10000)
+        cv2.imwrite("work_dirs/mask" + str(i) + ".png", rgb_image + mask_image[:, :, :3] * 10000)
 
     return all_masks
 
@@ -217,100 +216,98 @@ def binary_mask_to_rle(binary_mask):
     rle["counts"] = rle["counts"].decode("utf-8")  # COCO requires `counts` to be a string
     return rle
 
+
+def process_dataset():
+    # Initialize COCO JSON structure
+    coco_json = {
+        "images": [],
+        "annotations": [],
+        "categories": [{"id": 1, "name": "shot_glass"}, {"id": 2, "name": "beer_glass"}, {"id": 3, "name": "wine_glass"}]  # Add more categories if needed
+    }
+
+    # Placeholder for annotation ID
+    annotation_id = 1
+
+    for image_id, (rgb_image_path, depth_image_path) in enumerate(zip(RGB_PATHS, DEPTH_PATHS)):
+        # Load RGB and depth images
+
+        rgb_image = Image.open(rgb_image_path)
+        rgb_image = np.array(rgb_image)
+        rgb_image = cv2.resize(rgb_image, (640, 360)) 
+        cv2.imwrite("work_dirs/rgb.png", rgb_image)
+
+        depth_image = cv2.imread(depth_image_path, cv2.IMREAD_UNCHANGED)  # Ensure depth is loaded properly
+        depth_array = np.load(depth_image_path)
+        depth_normalized = (depth_array-np.min(depth_array))/(np.max(depth_array)-np.min(depth_array))
+        cv2.imwrite("work_dirs/depth.png", depth_normalized * 255)
+
+        # Add image metadata to COCO JSON
+        coco_json["images"].append({
+            "id": image_id,
+            "file_name": rgb_image_path,  # Store the file name, not the full path
+            "width": rgb_image.shape[1],  # Image width
+            "height": rgb_image.shape[0]  # Image height
+        })
+
+        pc = depth_2_pc(FX, FY, CX, CY, depth_array)
+        pc = np.swapaxes(pc, 0, 1)
+
+        pcd = o3d.geometry.PointCloud()
+        pcd.points = o3d.utility.Vector3dVector(pc)
+
+        a, b, c, d, inliers = fit_plane(pcd)
+        r = find_rotation(a, b, c)
+
+        pcd.rotate(r, center=(0, 0, 0))
+
+        inlier_cloud = pcd.select_by_index(inliers)
+        inlier_cloud.paint_uniform_color([0, 0, 1]) 
+
+        outlier_cloud = pcd.select_by_index(inliers, invert=True)
+        labels, blob_heights = threshold_blobs(outlier_cloud)
+
+        axis_gizmo = o3d.geometry.TriangleMesh.create_coordinate_frame(size=0.1, origin=[0, 0, 0])
+        o3d.visualization.draw_geometries([inlier_cloud, outlier_cloud, axis_gizmo])
+
+        coords = pixel_coordinates(outlier_cloud, blob_heights, KNOWN_HEIGHTS, KNOWN_NAMES)
+        all_masks = segmentation_masks(rgb_image, coords)
+
+        for mask_id, mask in enumerate(all_masks):
+            mask = mask.astype(np.uint8)
+            # Create bounding box from mask
+            x, y, w, h = cv2.boundingRect(mask.astype(np.uint8))
+
+            # Convert mask to RLE format for COCO
+            rle_mask = binary_mask_to_rle(mask)
+
+            # Add annotation data for the object
+            coco_json["annotations"].append({
+                "id": annotation_id,
+                "image_id": image_id,
+                "category_id": int(coords[mask_id][2] + 1),  # Assuming single category, you can extend for multiple categories
+                "bbox": [x, y, w, h],
+                "segmentation": rle_mask,
+                "area": int(np.sum(mask)),  # Area is the number of pixels in the mask
+                "iscrowd": 0
+            })
+
+            # Increment annotation ID
+            annotation_id += 1
+
+        mark_classes(coords, rgb_image, KNOWN_NAMES)
+
+    # Save COCO JSON to file
+    with open('coco_annotations.json', 'w') as f:
+        json.dump(coco_json, f)
+
+
     
 KNOWN_HEIGHTS = [8.0, 13.5, 19.0]
 KNOWN_NAMES = ["shot_glass", "beer_glass", "wine_glass"]
 FX = FY = 525.0  # Focal length 
 CX = 319.5       # Principal point (x-coordinate)
 CY = 239.5       # Principal point (y-coordinate)
+DEPTH_PATHS = ["data/10.npy"]
+RGB_PATHS = ["data/10.png"]
 
-# Initialize COCO JSON structure
-coco_json = {
-    "images": [],
-    "annotations": [],
-    "categories": [{"id": 1, "name": "shot_glass"}, {"id": 2, "name": "beer_glass"}, {"id": 3, "name": "wine_glass"}]  # Add more categories if needed
-}
-
-# Placeholder for annotation ID
-annotation_id = 1
-
-depth_paths = ["data/10.npy"]
-rgb_paths = ["data/10.png"]
-
-
-for image_id, (rgb_image_path, depth_image_path) in enumerate(zip(rgb_paths, depth_paths)):
-    # Load RGB and depth images
-
-    rgb_image = Image.open(rgb_image_path)
-    rgb_image = np.array(rgb_image)
-    rgb_image = cv2.resize(rgb_image, (640, 360)) 
-    cv2.imwrite("rgb.png", rgb_image)
-
-    depth_image = cv2.imread(depth_image_path, cv2.IMREAD_UNCHANGED)  # Ensure depth is loaded properly
-    depth_array = np.load(depth_image_path)
-    depth_normalized = (depth_array-np.min(depth_array))/(np.max(depth_array)-np.min(depth_array))
-    cv2.imwrite("depth.png", depth_normalized * 255)
-
-    # Add image metadata to COCO JSON
-    coco_json["images"].append({
-        "id": image_id,
-        "file_name": rgb_image_path,  # Store the file name, not the full path
-        "width": rgb_image.shape[1],  # Image width
-        "height": rgb_image.shape[0]  # Image height
-    })
-
-    pc = depth_2_pc(FX, FY, CX, CY, depth_array)
-    pc = np.swapaxes(pc, 0, 1)
-
-    pcd = o3d.geometry.PointCloud()
-    pcd.points = o3d.utility.Vector3dVector(pc)
-
-    a, b, c, d, inliers = fit_plane(pcd)
-    r = find_rotation(a, b, c)
-
-    pcd.rotate(r, center=(0, 0, 0))
-
-    inlier_cloud = pcd.select_by_index(inliers)
-    inlier_cloud.paint_uniform_color([0, 0, 1]) 
-
-    outlier_cloud = pcd.select_by_index(inliers, invert=True)
-    labels, blob_heights = threshold_blobs(outlier_cloud)
-
-    axis_gizmo = o3d.geometry.TriangleMesh.create_coordinate_frame(size=0.1, origin=[0, 0, 0])
-    o3d.visualization.draw_geometries([inlier_cloud, outlier_cloud, axis_gizmo])
-
-    coords = pixel_coordinates(outlier_cloud, blob_heights, KNOWN_HEIGHTS, KNOWN_NAMES)
-    all_masks = segmentation_masks(rgb_image, coords)
-
-    for mask_id, mask in enumerate(all_masks):
-        mask = mask.astype(np.uint8)
-        # Create bounding box from mask
-        x, y, w, h = cv2.boundingRect(mask.astype(np.uint8))
-
-        # Convert mask to RLE format for COCO
-        rle_mask = binary_mask_to_rle(mask)
-
-        # Add annotation data for the object
-        coco_json["annotations"].append({
-            "id": annotation_id,
-            "image_id": image_id,
-            "category_id": int(coords[mask_id][2] + 1),  # Assuming single category, you can extend for multiple categories
-            "bbox": [x, y, w, h],
-            "segmentation": rle_mask,
-            "area": int(np.sum(mask)),  # Area is the number of pixels in the mask
-            "iscrowd": 0
-        })
-
-        # Increment annotation ID
-        annotation_id += 1
-
-    mark_classes(coords, rgb_image, KNOWN_NAMES)
-
-# Save COCO JSON to file
-with open('coco_annotations.json', 'w') as f:
-    json.dump(coco_json, f)
-
-
-
-   
-
+process_dataset()
