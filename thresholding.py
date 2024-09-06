@@ -264,7 +264,6 @@ def process_dataset():
                        {"id": 5, "name": "high_glass"}]  # Add more categories if needed
     }
 
-    # Placeholder for annotation ID
     annotation_id = 1
 
     for image_id, (rgb_image_path, depth_image_path, caps_image_path) in enumerate(zip(RGB_PATHS, DEPTH_PATHS, CAPS_PATHS)):
@@ -272,13 +271,15 @@ def process_dataset():
         rgb_image = Image.open(rgb_image_path)
         rgb_image = np.array(rgb_image)
         rgb_image = cv2.resize(rgb_image, (640, 360))
-        #rgb_image = cv2.cvtColor(rgb_image, cv2.COLOR_RGB2BGR) 
+        if not ("scene_1_" in rgb_image_path or "scene_2_" in rgb_image_path):
+            rgb_image = cv2.cvtColor(rgb_image, cv2.COLOR_RGB2BGR) 
         cv2.imwrite("work_dirs/rgb.png", rgb_image)
 
         caps_image = Image.open(caps_image_path)
         caps_image = np.array(caps_image)
         caps_image = cv2.resize(caps_image, (640, 360))
-        #caps_image = cv2.cvtColor(caps_image, cv2.COLOR_RGB2BGR) 
+        if not ("scene_1_" in caps_image_path or "scene_2_" in caps_image_path):
+            caps_image = cv2.cvtColor(caps_image, cv2.COLOR_RGB2BGR) 
         cv2.imwrite("work_dirs/caps.png", caps_image)
 
         depth_array = np.load(depth_image_path)
@@ -363,13 +364,12 @@ DEPTH_PATHS = []
 RGB_PATHS = []
 CAPS_PATHS = []
 
-for i in range(25):
-    DEPTH_PATHS.append(f"Dataset1/scene_1_caps/head_depth_img/{i}.npy")
-    RGB_PATHS.append(f"Dataset1/scene_1_transparent/head_frame_img/{i}.png")
-    CAPS_PATHS.append(f"Dataset1/scene_1_caps/head_frame_img/{i}.png")
-for i in range(25):
-    DEPTH_PATHS.append(f"Dataset1/scene_2_caps/head_depth_img/{i}.npy")
-    RGB_PATHS.append(f"Dataset1/scene_2_transparent/head_frame_img/{i}.png")
-    CAPS_PATHS.append(f"Dataset1/scene_2_caps/head_frame_img/{i}.png")
+SCENES_COUNT = 30
+
+for j in range(SCENES_COUNT):
+    for i in range(25):
+        DEPTH_PATHS.append(f"Dataset1/scene_{j}_caps/head_depth_img/{i}.npy")
+        RGB_PATHS.append(f"Dataset1/scene_{j}_transparent/head_frame_img/{i}.png")
+        CAPS_PATHS.append(f"Dataset1/scene_{j}_caps/head_frame_img/{i}.png")
 
 process_dataset()
