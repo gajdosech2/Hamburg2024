@@ -8,10 +8,14 @@ import os
 import json
 import cv2
 from datetime import datetime
-os.chdir("/home/g/gajdosech2/Hamburg2024")
+
+ROOT_DIR = "/home/g/gajdosech2/"
+ROOT_DIR = "/export/home/gajdosec/"
+
+os.chdir(ROOT_DIR + "/Hamburg2024")
 
 import sys
-sys.path.append("/home/g/gajdosech2/segment-anything-2")
+sys.path.append(ROOT_DIR + "/segment-anything-2")
 from sam2.build_sam import build_sam2
 from sam2.sam2_image_predictor import SAM2ImagePredictor
 
@@ -65,7 +69,7 @@ def find_rotation(a, b, c):
 
 
 def threshold_blobs(outlier_cloud, a, b, c, d):
-    labels = np.array(outlier_cloud.cluster_dbscan(eps=0.02, min_points=1000, print_progress=True))
+    labels = np.array(outlier_cloud.cluster_dbscan(eps=0.02, min_points=500, print_progress=True))
 
     # Number of clusters
     max_label = labels.max()
@@ -100,12 +104,12 @@ def threshold_blobs(outlier_cloud, a, b, c, d):
     return labels, blob_heights
 
 
-def pixel_coordinates(outlier_cloud, labels, blob_heights, r):
+def pixel_coordinates(outlier_cloud, labels, blob_heights, r, caps_image):
     k = np.array([[FX, 0, CX],
               [0, FY, CY],
               [0,  0,  1]])
 
-    r_inv = np.linalg.inv(r)
+    #r_inv = np.linalg.inv(r)
     coordinates = []
 
     for i, height in blob_heights:
@@ -114,7 +118,7 @@ def pixel_coordinates(outlier_cloud, labels, blob_heights, r):
         best = None
         for j, known_height in enumerate(KNOWN_HEIGHTS):
             current = abs(known_height - height)
-            if current < 1: 
+            if current < 2: 
                 if best == None or current < best:
                     best = current
                     index = j
@@ -130,7 +134,8 @@ def pixel_coordinates(outlier_cloud, labels, blob_heights, r):
         
         # Calculate the centroid of the blob (center of gravity)
         centroid = np.mean(cluster_points, axis=0)
-        original_centroid = np.dot(r_inv, centroid)
+        #original_centroid = np.dot(r_inv, centroid)
+        original_centroid = centroid
         
         # Extract the 3D coordinates of the original centroid (X, Y, Z)
         x, y, z = original_centroid
@@ -138,6 +143,19 @@ def pixel_coordinates(outlier_cloud, labels, blob_heights, r):
         # Project the 3D centroid to 2D pixel coordinates using the intrinsic matrix
         u = (k[0, 0] * x / z) + k[0, 2]
         v = (k[1, 1] * y / z) + k[1, 2]
+
+        # Check the color
+        pixel_color = caps_image[int(v), int(u)]
+        color_distance = np.linalg.norm(CAP_COLOR - pixel_color)
+
+        cv2.circle(caps_image, (int(u), int(v)), radius=5, color=(0, 255, 0), thickness=2)  # Green circles with radius 5
+        cv2.imwrite('work_dirs/debug/caps_image.png', caps_image)
+
+        if color_distance > 150:
+            continue
+
+        if pixel_color[0] > pixel_color[1] or pixel_color[1] > pixel_color[2]:
+            continue
         
         # Store the pixel coordinates (u, v) and the corresponding 3D centroid
         coordinates.append((int(u), int(v), index))
@@ -190,7 +208,7 @@ def show_masks(image, masks, scores, borders=True):
 
 
 def segmentation_masks(rgb_image, coords):
-    sam2_checkpoint = "/home/g/gajdosech2/segment-anything-2/checkpoints/sam2_hiera_large.pt"
+    sam2_checkpoint = ROOT_DIR + "/segment-anything-2/checkpoints/sam2_hiera_large.pt"
     model_cfg = "sam2_hiera_l.yaml"
 
     sam2_model = build_sam2(model_cfg, sam2_checkpoint, device=torch.device("cuda"))
@@ -249,15 +267,22 @@ def process_dataset():
     # Placeholder for annotation ID
     annotation_id = 1
 
-    for image_id, (rgb_image_path, depth_image_path) in enumerate(zip(RGB_PATHS, DEPTH_PATHS)):
+    for image_id, (rgb_image_path, depth_image_path, caps_image_path) in enumerate(zip(RGB_PATHS, DEPTH_PATHS, CAPS_PATHS)):
         # Load RGB and depth images
         rgb_image = Image.open(rgb_image_path)
         rgb_image = np.array(rgb_image)
-        rgb_image = cv2.resize(rgb_image, (640, 360)) 
+        rgb_image = cv2.resize(rgb_image, (640, 360))
+        #rgb_image = cv2.cvtColor(rgb_image, cv2.COLOR_RGB2BGR) 
         cv2.imwrite("work_dirs/rgb.png", rgb_image)
 
+        caps_image = Image.open(caps_image_path)
+        caps_image = np.array(caps_image)
+        caps_image = cv2.resize(caps_image, (640, 360))
+        #caps_image = cv2.cvtColor(caps_image, cv2.COLOR_RGB2BGR) 
+        cv2.imwrite("work_dirs/caps.png", caps_image)
+
         depth_array = np.load(depth_image_path)
-        depth_array = cv2.resize(depth_array, (640, 360)) 
+        depth_array = cv2.resize(depth_array, (640, 360), interpolation = cv2.INTER_NEAREST)
         depth_normalized = (depth_array-np.min(depth_array))/(np.max(depth_array)-np.min(depth_array))
         cv2.imwrite("work_dirs/depth.png", depth_normalized * 255)
 
@@ -278,7 +303,7 @@ def process_dataset():
         a, b, c, d, inliers = fit_plane(pcd)
         r = find_rotation(a, b, c)
 
-        pcd.rotate(r, center=(0, 0, 0))
+        #pcd.rotate(r, center=(0, 0, 0))
 
         inlier_cloud = pcd.select_by_index(inliers)
         inlier_cloud.paint_uniform_color([0, 0, 1]) 
@@ -287,9 +312,9 @@ def process_dataset():
         labels, blob_heights = threshold_blobs(outlier_cloud, a, b, c, d)
 
         axis_gizmo = o3d.geometry.TriangleMesh.create_coordinate_frame(size=0.1, origin=[0, 0, 0])
-        o3d.visualization.draw_geometries([inlier_cloud, outlier_cloud, axis_gizmo])
+        #o3d.visualization.draw_geometries([inlier_cloud, outlier_cloud, axis_gizmo])
 
-        coords = pixel_coordinates(outlier_cloud, labels, blob_heights, r)
+        coords = pixel_coordinates(outlier_cloud, labels, blob_heights, r, caps_image)
         all_masks = segmentation_masks(rgb_image, coords)
 
         for mask_id, mask in enumerate(all_masks):
@@ -324,22 +349,27 @@ def process_dataset():
 
 
     
-KNOWN_HEIGHTS = [8.0-5.0, 12.0-4.0, 13.5-4.0, 19.0-5.0, 23.5-5.0]
+KNOWN_HEIGHTS = [6.0, 11.0, 13.0, 17.5, 22.0]
 KNOWN_NAMES = ["shot_glass", "water_glass", "beer_glass", "wine_glass", "high_glass"]
-FX = FY = 525.0  # Focal length 
-CX = 1280 / 2      # Principal point (x-coordinate)
-CY = 720 / 2      # Principal point (y-coordinate)
+CAP_COLOR = [130, 160, 190]
 
-DEPTH_PATHS = ["data/11.npy"]
-RGB_PATHS = ["data/11.png"]
+FX = FY = 914 / 2 # Focal length 
+CX = 650 / 2     # Principal point (x-coordinate)
+CY = 370 / 2     # Principal point (y-coordinate)
+
+#DEPTH_PATHS = ["data/11.npy"]
+#RGB_PATHS = ["data/11.png"]
 DEPTH_PATHS = []
 RGB_PATHS = []
+CAPS_PATHS = []
 
 for i in range(25):
     DEPTH_PATHS.append(f"Dataset1/scene_1_caps/head_depth_img/{i}.npy")
     RGB_PATHS.append(f"Dataset1/scene_1_transparent/head_frame_img/{i}.png")
+    CAPS_PATHS.append(f"Dataset1/scene_1_caps/head_frame_img/{i}.png")
 for i in range(25):
     DEPTH_PATHS.append(f"Dataset1/scene_2_caps/head_depth_img/{i}.npy")
     RGB_PATHS.append(f"Dataset1/scene_2_transparent/head_frame_img/{i}.png")
+    CAPS_PATHS.append(f"Dataset1/scene_2_caps/head_frame_img/{i}.png")
 
 process_dataset()
