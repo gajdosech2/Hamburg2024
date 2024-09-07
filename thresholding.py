@@ -10,7 +10,7 @@ import cv2
 from datetime import datetime
 
 ROOT_DIR = "/home/g/gajdosech2/"
-ROOT_DIR = "/export/home/gajdosec/"
+#ROOT_DIR = "/export/home/gajdosec/"
 
 os.chdir(ROOT_DIR + "/Hamburg2024")
 
@@ -18,6 +18,32 @@ import sys
 sys.path.append(ROOT_DIR + "/segment-anything-2")
 from sam2.build_sam import build_sam2
 from sam2.sam2_image_predictor import SAM2ImagePredictor
+
+
+def depth_map_to_point_cloud(fx, fy, cx, cy, d, depth_array):
+    k = np.array([[fx, 0, cx], [0, fy, cy], [0, 0, 1]])
+    h, w = depth_array.shape
+    
+    # Generate pixel grid
+    i, j = np.meshgrid(np.arange(w), np.arange(h))
+    pixels = np.stack([i, j], axis=-1).reshape(-1, 2).astype(np.float32)
+
+    # Undistort the pixel coordinates
+    undistorted_pixels = cv2.undistortPoints(pixels, k, d, None, k).reshape(h, w, 2)
+    
+    # Convert undistorted pixels to normalized coordinates
+    x_normalized = (undistorted_pixels[..., 0] - k[0, 2]) / k[0, 0]
+    y_normalized = (undistorted_pixels[..., 1] - k[1, 2]) / k[1, 1]
+    
+    # Convert to 3D points
+    z = depth_array / 1000.0
+    x = x_normalized * z
+    y = y_normalized * z
+    
+    # Stack into an Nx3 point cloud
+    point_cloud = np.stack([x, y, z], axis=-1).reshape(-1, 3)
+    
+    return point_cloud
 
 
 def depth_2_pc(fx, fy, cx, cy, depth_array):
@@ -258,10 +284,11 @@ def process_dataset():
         "images": [],
         "annotations": [],
         "categories": [{"id": 1, "name": "shot_glass"}, 
-                       {"id": 2, "name": "water_glass"}, 
-                       {"id": 3, "name": "beer_glass"}, 
-                       {"id": 4, "name": "wine_glass"},
-                       {"id": 5, "name": "high_glass"}]  # Add more categories if needed
+                       {"id": 2, "name": "whisky_glass"}, 
+                       {"id": 3, "name": "water_glass"}, 
+                       {"id": 4, "name": "beer_glass"}, 
+                       {"id": 5, "name": "wine_glass"},
+                       {"id": 6, "name": "high_glass"}]  # Add more categories if needed
     }
 
     annotation_id = 1
@@ -324,6 +351,9 @@ def process_dataset():
             # Create bounding box from mask
             x, y, w, h = cv2.boundingRect(mask.astype(np.uint8))
 
+            if w > 350: #bad mask
+                continue
+
             # Convert mask to format for COCO
             # rle_mask = binary_mask_to_rle(mask)
             polygons = binary_mask_to_polygon(mask)
@@ -350,13 +380,14 @@ def process_dataset():
 
 
     
-KNOWN_HEIGHTS = [6.0, 11.0, 13.0, 17.5, 22.0]
-KNOWN_NAMES = ["shot_glass", "water_glass", "beer_glass", "wine_glass", "high_glass"]
+KNOWN_HEIGHTS = [6.0, 9.0, 11.0, 13.0, 17.5, 22.0]
+KNOWN_NAMES = ["shot_glass", "whisky_glass", "water_glass", "beer_glass", "wine_glass", "high_glass"]
 CAP_COLOR = [130, 160, 190]
 
-FX = FY = 914 / 2 # Focal length 
-CX = 650 / 2     # Principal point (x-coordinate)
-CY = 370 / 2     # Principal point (y-coordinate)
+FX = 914.0937 / 2.0
+FY = 914.0947 / 2.0
+CX = 649.8485 / 2.0
+CY = 370.4816 / 2.0
 
 #DEPTH_PATHS = ["data/11.npy"]
 #RGB_PATHS = ["data/11.png"]
@@ -364,12 +395,14 @@ DEPTH_PATHS = []
 RGB_PATHS = []
 CAPS_PATHS = []
 
-SCENES_COUNT = 30
+SCENES_COUNT = 27
 
 for j in range(SCENES_COUNT):
+    if j+1 == 6: #shiftet scene
+        continue
     for i in range(25):
-        DEPTH_PATHS.append(f"Dataset1/scene_{j}_caps/head_depth_img/{i}.npy")
-        RGB_PATHS.append(f"Dataset1/scene_{j}_transparent/head_frame_img/{i}.png")
-        CAPS_PATHS.append(f"Dataset1/scene_{j}_caps/head_frame_img/{i}.png")
+        DEPTH_PATHS.append(f"dataset/scene_{j+1}_caps/head_depth_img/{i}.npy")
+        RGB_PATHS.append(f"dataset/scene_{j+1}_transparent/head_frame_img/{i}.png")
+        CAPS_PATHS.append(f"dataset/scene_{j+1}_caps/head_frame_img/{i}.png")
 
 process_dataset()

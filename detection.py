@@ -14,7 +14,11 @@ from mmdet.utils import setup_cache_size_limit_of_dynamo
 import cv2
 import os.path as osp
 import os
-os.chdir("/home/g/gajdosech2/Hamburg2024")
+
+ROOT_DIR = "/home/g/gajdosech2/"
+#ROOT_DIR = "/export/home/gajdosec/"
+
+os.chdir(ROOT_DIR + "/Hamburg2024")
 
 # register all modules in mmdet into the registries
 register_all_modules()
@@ -23,17 +27,17 @@ register_all_modules()
 setup_cache_size_limit_of_dynamo()
 
 def modify_config():
-    cfg = Config.fromfile('/home/g/gajdosech2/mmdetection/configs/rtmdet/rtmdet-ins_s_8xb32-300e_coco.py')
+    cfg = Config.fromfile(ROOT_DIR + '/mmdetection/configs/rtmdet/rtmdet-ins_s_8xb32-300e_coco.py')
 
     cfg.metainfo = {
-        'classes': ("shot_glass", "beer_glass", "wine_glass"),
+        'classes': ("shot_glass", "whisky_glass", "water_glass", "beer_glass", "wine_glass", "high_glass"),
         'palette': [
-            (250, 0, 0), (0, 250, 0), (0, 0, 250)
+            (250, 0, 0), (0, 250, 0), (0, 0, 250), (250, 250, 0), (250, 0, 250), (0, 250, 250)
         ]
     }
 
     # Modify dataset type and path
-    cfg.data_root = "/home/g/gajdosech2/Hamburg2024/"
+    cfg.data_root = ROOT_DIR + "/Hamburg2024/"
 
     cfg.train_dataloader.dataset.ann_file = "coco_annotations.json"
     cfg.train_dataloader.dataset.data_root = cfg.data_root
@@ -52,7 +56,7 @@ def modify_config():
     cfg.test_evaluator = cfg.val_evaluator
 
     # Modify num classes of the model in box head and mask head
-    cfg.model.bbox_head.num_classes = 3
+    cfg.model.bbox_head.num_classes = 6
 
     # We can still the pre-trained Mask RCNN model to obtain a higher performance
     cfg.load_from = 'rtmdet-ins_m_8xb32-300e_coco_20221123_001039-6eba602e.pth'
@@ -82,7 +86,7 @@ def modify_config():
         f.write(cfg.pretty_text)
 
 def visualize_gt(cfg):
-    output_dir = "/home/g/gajdosech2/Hamburg2024/work_dirs"
+    output_dir = ROOT_DIR + "/Hamburg2024/work_dirs/debug/"
     visualizer = VISUALIZERS.build(cfg.visualizer)
     dataset = DATASETS.build(cfg.train_dataloader.dataset)
 
@@ -123,11 +127,11 @@ def visualize_gt(cfg):
 
 
 def inference():
-    checkpoint_file = '/home/g/gajdosech2/Hamburg2024/work_dirs/epoch_500.pth'
+    checkpoint_file = ROOT_DIR + '/Hamburg2024/work_dirs/epoch_100.pth'
     model = init_detector(CONFIG_FILE, checkpoint_file, device='cpu') 
     visualizer = VISUALIZERS.build(model.cfg.visualizer)
 
-    image = mmcv.imread('/home/g/gajdosech2/Hamburg2024/data/10.png', channel_order='rgb')
+    image = mmcv.imread(ROOT_DIR + '/Hamburg2024/data/ex.png', channel_order='rgb')
     image = cv2.resize(image, (640, 360))
     result = inference_detector(model, image)
 
@@ -148,8 +152,8 @@ CONFIG_FILE = 'config.py'
 cfg = Config.fromfile(CONFIG_FILE)
 cfg.work_dir = "work_dirs/"
 
-visualize_gt(cfg)
+#visualize_gt(cfg)
 
-Runner.from_cfg(cfg).train()
+#Runner.from_cfg(cfg).train()
 
 inference()
