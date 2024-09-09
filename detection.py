@@ -91,7 +91,11 @@ def visualize_gt(cfg):
     dataset = DATASETS.build(cfg.train_dataloader.dataset)
 
     progress_bar = ProgressBar(len(dataset))
+    i = 0
     for item in dataset:
+        i += 1
+        if i > 22:
+            break
         img = item['inputs'].permute(1, 2, 0).numpy()
         data_sample = item['data_samples'].numpy()
         gt_instances = data_sample.gt_instances
@@ -127,11 +131,12 @@ def visualize_gt(cfg):
 
 
 def inference():
-    checkpoint_file = ROOT_DIR + '/Hamburg2024/work_dirs/epoch_100.pth'
+    checkpoint_file = ROOT_DIR + '/Hamburg2024/work_dirs/epoch_400.pth'
     model = init_detector(CONFIG_FILE, checkpoint_file, device='cpu') 
     visualizer = VISUALIZERS.build(model.cfg.visualizer)
+    visualizer.dataset_meta = model.dataset_meta
 
-    image = mmcv.imread(ROOT_DIR + '/Hamburg2024/data/ex.png', channel_order='rgb')
+    image = mmcv.imread(ROOT_DIR + '/Hamburg2024/data/0.png', channel_order='rgb')
     image = cv2.resize(image, (640, 360))
     result = inference_detector(model, image)
 
@@ -141,6 +146,7 @@ def inference():
         data_sample=result,
         draw_gt = False,
         wait_time=0,
+        pred_score_thr=0.1
     )
 
     img = visualizer.get_image()
@@ -152,8 +158,8 @@ CONFIG_FILE = 'config.py'
 cfg = Config.fromfile(CONFIG_FILE)
 cfg.work_dir = "work_dirs/"
 
-#visualize_gt(cfg)
+visualize_gt(cfg)
 
 #Runner.from_cfg(cfg).train()
 
-inference()
+#inference()

@@ -97,6 +97,9 @@ def find_rotation(a, b, c):
 def threshold_blobs(outlier_cloud, a, b, c, d):
     labels = np.array(outlier_cloud.cluster_dbscan(eps=0.02, min_points=500, print_progress=True))
 
+    if labels.shape[0] == 0:
+        return np.array([]), np.array([])
+
     # Number of clusters
     max_label = labels.max()
 
@@ -339,6 +342,9 @@ def process_dataset():
         outlier_cloud = pcd.select_by_index(inliers, invert=True)
         labels, blob_heights = threshold_blobs(outlier_cloud, a, b, c, d)
 
+        if labels.shape[0] == 0:
+            continue
+
         axis_gizmo = o3d.geometry.TriangleMesh.create_coordinate_frame(size=0.1, origin=[0, 0, 0])
         #o3d.visualization.draw_geometries([inlier_cloud, outlier_cloud, axis_gizmo])
 
@@ -375,8 +381,8 @@ def process_dataset():
         mark_classes(coords, rgb_image, KNOWN_NAMES)
 
     # Save COCO JSON to file
-    with open('coco_annotations.json', 'w') as f:
-        json.dump(coco_json, f)
+    #with open('coco_annotations.json', 'w') as f:
+    #    json.dump(coco_json, f)
 
 
     
@@ -395,10 +401,12 @@ DEPTH_PATHS = []
 RGB_PATHS = []
 CAPS_PATHS = []
 
-SCENES_COUNT = 27
+SCENES_COUNT = 35
 
 for j in range(SCENES_COUNT):
     if j+1 == 6: #shiftet scene
+        continue
+    if j+1 == 30: #val scene
         continue
     for i in range(25):
         DEPTH_PATHS.append(f"dataset/scene_{j+1}_caps/head_depth_img/{i}.npy")

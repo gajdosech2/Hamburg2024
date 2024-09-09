@@ -60,7 +60,7 @@ test_images_dir = ""
 
 max_epochs = 1000
 lr = 0.01
-val_interval = checkpoint_interval = 100
+val_interval = checkpoint_interval = 200
 batch_size = 4
 num_workers = 4
 
@@ -143,8 +143,8 @@ model = dict(
     test_cfg=dict(
         nms_pre=1000,
         min_bbox_size=0,
-        score_thr=0.1,
-        nms=dict(type="nms", iou_threshold=0.5),
+        score_thr=0.05,
+        nms=dict(type="nms", iou_threshold=0.6),
         max_per_img=100,
         mask_thr_binary=0.5,
     ),
@@ -172,7 +172,7 @@ train_pipeline = [
     #     recompute_bbox=True,
     #     allow_negative_crop=True,
     # ),
-    dict(type=YOLOXHSVRandomAug),
+    #dict(type=YOLOXHSVRandomAug),
     dict(type=RandomFlip, prob=0.5),
     # dict(type=Pad, size=(640, 640), pad_val=dict(img=(114, 114, 114))),
     # dict(
