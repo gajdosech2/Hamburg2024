@@ -60,7 +60,7 @@ test_images_dir = ""
 
 max_epochs = 1000
 lr = 0.01
-val_interval = checkpoint_interval = 500
+val_interval = checkpoint_interval = 100
 batch_size = 4
 num_workers = 4
 
@@ -118,7 +118,7 @@ model = dict(
     ),
     bbox_head=dict(
         type=RTMDetInsSepBNHead,
-        num_classes=3,
+        num_classes=6,
         in_channels=192,
         stacked_convs=2,
         share_conv=True,
@@ -144,7 +144,7 @@ model = dict(
         nms_pre=1000,
         min_bbox_size=0,
         score_thr=0.1,
-        nms=dict(type="nms", iou_threshold=0.2),
+        nms=dict(type="nms", iou_threshold=0.5),
         max_per_img=100,
         mask_thr_binary=0.5,
     ),
@@ -172,8 +172,8 @@ train_pipeline = [
     #     recompute_bbox=True,
     #     allow_negative_crop=True,
     # ),
-    #dict(type=YOLOXHSVRandomAug),
-    #dict(type=RandomFlip, prob=0.5),
+    dict(type=YOLOXHSVRandomAug),
+    dict(type=RandomFlip, prob=0.5),
     # dict(type=Pad, size=(640, 640), pad_val=dict(img=(114, 114, 114))),
     # dict(
     #     type=CachedMixUp,
@@ -195,15 +195,9 @@ train_dataloader = dict(
     dataset=dict(
         type=CocoDataset,
         metainfo=dict(
-            classes = (
-                'shot_glass',
-                'beer_glass',
-                'wine_glass',
-                ),
+            classes = ("shot_glass", "whisky_glass", "water_glass", "beer_glass", "wine_glass", "high_glass"),
             palette = [
-                (250, 0, 0),
-                (0, 250, 0),
-                (0, 0, 250),
+                (250, 0, 0), (0, 250, 0), (0, 0, 250), (250, 250, 0), (250, 0, 250), (0, 250, 250)
             ]),
         data_root=data_root,
         ann_file=train_annotations_file,
@@ -242,7 +236,6 @@ val_dataloader = dict(
         backend_args=backend_args,
     ),
 )
-
 test_dataloader = val_dataloader
 
 val_evaluator = dict(
