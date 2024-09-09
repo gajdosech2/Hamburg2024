@@ -75,7 +75,7 @@ intrinsics_top = {"fx": 914.0937, "fy": 914.0947, "cx": 649.8485, "cy": 370.4816
 # Load your depth images (replace with actual depth image loading)
 depth_image_right = np.load('data/right_depth_img.npy')  # Example depth map for the right camera
 depth_image_left = np.load('data/left_depth_img.npy')    # Example depth map for the left camera
-depth_image_top = np.load('data/top_depth_img.npy')      # Example depth map for the top camera
+depth_image_top = np.load('data/10chalded.npy')      # Example depth map for the top camera
 
 # Get transformation data from JSON
 translation_right, rotation_right = get_transformation_data(transform_data, "realsense_right_color_optical_frame")
@@ -117,7 +117,7 @@ print("create_from_point_cloud_poisson")
 axis_gizmo = o3d.geometry.TriangleMesh.create_coordinate_frame(size=1000.0, origin=[0, 0, 0])
 
 # Combine and visualize
-o3d.visualization.draw_geometries([pcd_left_o3d, pcd_right_o3d, axis_gizmo])
+#o3d.visualization.draw_geometries([pcd_left_o3d, pcd_right_o3d, axis_gizmo])
 
-#o3d.visualization.draw_geometries([pcd_top_o3d, axis_gizmo])
+o3d.visualization.draw_geometries([pcd_top_o3d, axis_gizmo])
 
