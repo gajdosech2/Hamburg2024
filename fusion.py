@@ -2,7 +2,6 @@ import numpy as np
 import open3d as o3d
 from scipy.spatial.transform import Rotation as R
 import json
-
 import os
 
 ROOT_DIR = "/home/g/gajdosech2/"
@@ -10,19 +9,40 @@ ROOT_DIR = "/export/home/gajdosec/"
 
 os.chdir(ROOT_DIR + "/Hamburg2024")
 
+from utils.camera_models import PinholeCameraModel
+
 
 def create_point_cloud_from_depth_and_rgb(depth_image, rgb_image, intrinsics):
     intrinsics = o3d.camera.PinholeCameraIntrinsic(
         width=1280, height=720, fx=intrinsics["fx"], fy=intrinsics["fy"], cx=intrinsics["cx"], cy=intrinsics["cy"]
     )
+
+
+
+    h, w = depth_image.shape
+    
+    # Generate pixel grid
+    i, j = np.meshgrid(np.arange(w), np.arange(h))
+    pixels = np.stack([i, j], axis=-1).reshape(-1, 2).astype(np.float32)
+
+    camera_instance = PinholeCameraModel()
+
+    ray_vectors, ray_origin = camera_instance.cast_pixel_rays(pixels)
+
+
+    points_3D = ray_origin + depth_image * ray_vectors
+
+    pcd = o3d.geometry.PointCloud()
+    pcd.points = o3d.utility.Vector3dVector(points_3D)
+
     # Create a point cloud from the depth image
-    pcd = o3d.geometry.PointCloud.create_from_depth_image(
-        depth_image,
-        intrinsics,
-        depth_scale=1000.0, 
-        depth_trunc=3.0,
-        stride=1
-    )
+    #pcd = o3d.geometry.PointCloud.create_from_depth_image(
+    #    depth_image,
+    #    intrinsics,
+    #    depth_scale=1000.0, 
+    #    depth_trunc=3.0,
+    #    stride=1
+    #)
 
     # Get pixel coordinates for each 3D point
     points_2d = np.asarray(pcd.points)
