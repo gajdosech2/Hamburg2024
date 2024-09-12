@@ -10,7 +10,7 @@ import cv2
 from datetime import datetime
 
 ROOT_DIR = "/home/g/gajdosech2/"
-#ROOT_DIR = "/export/home/gajdosec/"
+ROOT_DIR = "/export/home/gajdosec/"
 
 os.chdir(ROOT_DIR + "/Hamburg2024")
 
@@ -346,7 +346,7 @@ def process_dataset():
             continue
 
         axis_gizmo = o3d.geometry.TriangleMesh.create_coordinate_frame(size=0.1, origin=[0, 0, 0])
-        #o3d.visualization.draw_geometries([inlier_cloud, outlier_cloud, axis_gizmo])
+        o3d.visualization.draw_geometries([inlier_cloud, outlier_cloud, axis_gizmo])
 
         coords = pixel_coordinates(outlier_cloud, labels, blob_heights, r, caps_image)
         all_masks = segmentation_masks(rgb_image, coords)
@@ -390,6 +390,11 @@ KNOWN_HEIGHTS = [6.0, 9.0, 11.0, 13.0, 17.5, 22.0]
 KNOWN_NAMES = ["shot_glass", "whisky_glass", "water_glass", "beer_glass", "wine_glass", "high_glass"]
 CAP_COLOR = [130, 160, 190]
 
+FX = 964.276709 / 2.0
+FY = 968.782545 / 2.0
+CX = 629.718065 / 2.0
+CY = 393.747072 / 2.0
+
 FX = 914.0937 / 2.0
 FY = 914.0947 / 2.0
 CX = 649.8485 / 2.0
@@ -403,11 +408,7 @@ CAPS_PATHS = []
 
 SCENES_COUNT = 35
 
-for j in range(SCENES_COUNT):
-    if j+1 == 6: #shiftet scene
-        continue
-    if j+1 == 30: #val scene
-        continue
+for j in range(1):
     for i in range(25):
         DEPTH_PATHS.append(f"dataset/scene_{j+1}_caps/head_depth_img/{i}.npy")
         RGB_PATHS.append(f"dataset/scene_{j+1}_transparent/head_frame_img/{i}.png")
