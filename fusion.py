@@ -151,6 +151,6 @@ print("create_from_point_cloud_poisson")
 axis_gizmo = o3d.geometry.TriangleMesh.create_coordinate_frame(size=0.1, origin=[0, 0, 0])
 
 # Combine and visualize
-o3d.visualization.draw_geometries([pcd_top, axis_gizmo])
+o3d.visualization.draw_geometries([pcd_top, pcd_left, pcd_right, axis_gizmo])
 
 
