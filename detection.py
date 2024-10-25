@@ -105,7 +105,7 @@ def visualize_gt(cfg):
                 output_dir,
                 osp.basename(img_path)) if output_dir is not None else None
 
-        img = img[..., [2, 1, 0]]  # bgr to rgb
+        #img = img[..., [2, 1, 0]]  # bgr to rgb
         gt_bboxes = gt_instances.get('bboxes', None)
         if gt_bboxes is not None and isinstance(gt_bboxes, BaseBoxes):
             gt_instances.bboxes = gt_bboxes.tensor
@@ -131,35 +131,36 @@ def visualize_gt(cfg):
 
 
 def inference():
-    checkpoint_file = ROOT_DIR + '/Hamburg2024/work_dirs/epoch_400.pth'
+    checkpoint_file = ROOT_DIR + '/Hamburg2024/work_dirs/epoch_800.pth'
     model = init_detector(CONFIG_FILE, checkpoint_file, device='cpu') 
     visualizer = VISUALIZERS.build(model.cfg.visualizer)
     visualizer.dataset_meta = model.dataset_meta
 
-    image = mmcv.imread(ROOT_DIR + '/Hamburg2024/data/0.png', channel_order='rgb')
-    image = cv2.resize(image, (640, 360))
-    result = inference_detector(model, image)
+    for i in range(25):
+        image = mmcv.imread(ROOT_DIR + f'/Hamburg2024/dataset/scene_6_transparent/head_frame_img/{i}.png', channel_order='rgb')
+        image = cv2.resize(image, (640, 360))
+        result = inference_detector(model, image)
 
-    visualizer.add_datasample(
-        'result',
-        image,
-        data_sample=result,
-        draw_gt = False,
-        wait_time=0,
-        pred_score_thr=0.1
-    )
+        visualizer.add_datasample(
+            'result',
+            image,
+            data_sample=result,
+            draw_gt = False,
+            wait_time=0,
+            pred_score_thr=0.1
+        )
 
-    img = visualizer.get_image()
-    img = mmcv.imconvert(img, 'bgr', 'rgb')
-    cv2.imwrite("work_dirs/prediction.png", img)
+        img = visualizer.get_image()
+        img = mmcv.imconvert(img, 'bgr', 'rgb')
+        cv2.imwrite(f"work_dirs/pred/prediction{i}.png", img)
 
 
 CONFIG_FILE = 'config.py'
 cfg = Config.fromfile(CONFIG_FILE)
 cfg.work_dir = "work_dirs/"
 
-visualize_gt(cfg)
+#visualize_gt(cfg)
 
 #Runner.from_cfg(cfg).train()
 
-#inference()
+inference()

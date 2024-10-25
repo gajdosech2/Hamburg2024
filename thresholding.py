@@ -10,7 +10,7 @@ import cv2
 from datetime import datetime
 
 ROOT_DIR = "/home/g/gajdosech2/"
-ROOT_DIR = "/export/home/gajdosec/"
+#ROOT_DIR = "/export/home/gajdosec/"
 
 os.chdir(ROOT_DIR + "/Hamburg2024")
 
@@ -409,6 +409,10 @@ CAPS_PATHS = []
 SCENES_COUNT = 35
 
 for j in range(1):
+    if j+1 == 6: #shiftet scene
+        continue
+    if j+1 == 30: #val scene
+        continue
     for i in range(25):
         DEPTH_PATHS.append(f"dataset/scene_{j+1}_caps/head_depth_img/{i}.npy")
         RGB_PATHS.append(f"dataset/scene_{j+1}_transparent/head_frame_img/{i}.png")
