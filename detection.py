@@ -131,15 +131,21 @@ def visualize_gt(cfg):
 
 
 def inference():
-    checkpoint_file = ROOT_DIR + '/Hamburg2024/work_dirs/epoch_800.pth'
+    checkpoint_file = ROOT_DIR + '/Hamburg2024/work_dirs/epoch_400_mosaic.pth'
     model = init_detector(CONFIG_FILE, checkpoint_file, device='cpu') 
     visualizer = VISUALIZERS.build(model.cfg.visualizer)
     visualizer.dataset_meta = model.dataset_meta
 
     for i in range(25):
+        print(i)
         image = mmcv.imread(ROOT_DIR + f'/Hamburg2024/dataset/scene_6_transparent/head_frame_img/{i}.png', channel_order='rgb')
         image = cv2.resize(image, (640, 360))
         result = inference_detector(model, image)
+
+        class_names = ["shot_glass", "whisky_glass", "water_glass", "beer_glass", "wine_glass", "high_glass"]
+        result.pred_instances.bboxes
+        print([class_names[i] for i in result.pred_instances.labels])
+        print(result.pred_instances.scores)
 
         visualizer.add_datasample(
             'result',

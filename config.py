@@ -53,16 +53,16 @@ from mmengine.visualization import TensorboardVisBackend
 
 backend_args = None
 data_root = "/home/g/gajdosech2/Hamburg2024/"
-train_annotations_file = "coco_annotations.json"
-test_annotations_file = "coco_annotations.json"
+train_annotations_file = "coco_annotations_new.json"
+test_annotations_file = "coco_annotations_new.json"
 train_images_dir = ""
 test_images_dir = ""
 
 max_epochs = 1000
 lr = 0.01
 val_interval = checkpoint_interval = 200
-batch_size = 4
-num_workers = 4
+batch_size = 8
+num_workers = 8
 
 default_scope = None
 default_hooks = dict(
@@ -141,11 +141,11 @@ model = dict(
         debug=False,
     ),
     test_cfg=dict(
-        nms_pre=1000,
+        nms_pre=100,
         min_bbox_size=0,
-        score_thr=0.05,
+        score_thr=0.35,
         nms=dict(type="nms", iou_threshold=0.6),
-        max_per_img=100,
+        max_per_img=10,
         mask_thr_binary=0.5,
     ),
     init_cfg=dict(
@@ -158,30 +158,30 @@ train_pipeline = [
     dict(type=LoadAnnotations, with_bbox=True, with_mask=True),
     dict(type=Resize, scale=(640, 640), keep_ratio=True),
     dict(type=Pad, size=(640, 640), pad_val=dict(img=(114, 114, 114))),
-    # dict(type=CachedMosaic, img_scale=(640, 640), pad_val=114.0),
-    # dict(
-    #     type=RandomResize,
-    #     scale=(1280, 1280),
-    #     ratio_range=(0.1, 2.0),
-    #     resize_type=Resize,
-    #     keep_ratio=True,
-    # ),
-    # dict(
-    #     type=RandomCrop,
-    #     crop_size=(640, 640),
-    #     recompute_bbox=True,
-    #     allow_negative_crop=True,
-    # ),
-    #dict(type=YOLOXHSVRandomAug),
+    #dict(type=CachedMosaic, img_scale=(640, 640), pad_val=114.0),
+    #dict(
+    #    type=RandomResize,
+    #    scale=(1280, 1280),
+    #    ratio_range=(0.5, 1.5),
+    #    resize_type=Resize,
+    #    keep_ratio=True,
+    #),
+    #dict(
+    #    type=RandomCrop,
+    #    crop_size=(640, 640),
+    #    recompute_bbox=True,
+    #    allow_negative_crop=True,
+    #),
+    dict(type=YOLOXHSVRandomAug, hue_delta=10, saturation_delta=40, value_delta=40),
     dict(type=RandomFlip, prob=0.5),
-    # dict(type=Pad, size=(640, 640), pad_val=dict(img=(114, 114, 114))),
-    # dict(
-    #     type=CachedMixUp,
-    #     img_scale=(640, 640),
-    #     ratio_range=(1.0, 1.0),
-    #     max_cached_images=20,
-    #     pad_val=(114, 114, 114),
-    # ),
+    dict(type=Pad, size=(640, 640), pad_val=dict(img=(114, 114, 114))),
+    #dict(
+    #    type=CachedMixUp,
+    #    img_scale=(640, 640),
+    #    ratio_range=(1.0, 1.0),
+    #    max_cached_images=10,
+    #    pad_val=(114, 114, 114),
+    #),
     dict(type=FilterAnnotations, min_gt_bbox_wh=(1, 1)),
     dict(type=PackDetInputs),
 ]

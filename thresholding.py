@@ -1,4 +1,5 @@
 import torch
+from ultralytics import YOLO
 import open3d as o3d
 import numpy as np
 import matplotlib.pyplot as plt
@@ -20,7 +21,7 @@ from sam2.build_sam import build_sam2
 from sam2.sam2_image_predictor import SAM2ImagePredictor
 
 
-def depth_map_to_point_cloud(fx, fy, cx, cy, d, depth_array):
+def depth_2_pc_distortion(fx, fy, cx, cy, d, depth_array):
     k = np.array([[fx, 0, cx], [0, fy, cy], [0, 0, 1]])
     h, w = depth_array.shape
     
@@ -134,9 +135,7 @@ def threshold_blobs(outlier_cloud, a, b, c, d):
 
 
 def pixel_coordinates(outlier_cloud, labels, blob_heights, r, caps_image):
-    k = np.array([[FX, 0, CX],
-              [0, FY, CY],
-              [0,  0,  1]])
+    k = np.array([[FX, 0, CX], [0, FY, CY], [0,  0,  1]])
 
     #r_inv = np.linalg.inv(r)
     coordinates = []
@@ -177,8 +176,8 @@ def pixel_coordinates(outlier_cloud, labels, blob_heights, r, caps_image):
         pixel_color = caps_image[int(v), int(u)]
         color_distance = np.linalg.norm(CAP_COLOR - pixel_color)
 
-        cv2.circle(caps_image, (int(u), int(v)), radius=5, color=(0, 255, 0), thickness=2)  # Green circles with radius 5
-        cv2.imwrite('work_dirs/debug/caps_image.png', caps_image)
+        cv2.circle(caps_image, (int(u), int(v)), radius=3, color=(0, 255, 0), thickness=2)  # Green circles with radius 3
+        cv2.imwrite('work_dirs/debug/debug_circles.png', caps_image)
 
         if color_distance > 150:
             continue
@@ -195,14 +194,40 @@ def pixel_coordinates(outlier_cloud, labels, blob_heights, r, caps_image):
     return np.array(coordinates)
 
 
+import numpy as np
+
+def filter_coords_within_boxes(coords, rgb_image):
+    if len(coords) == 0:
+        return coords
+
+    model = YOLO("yolov8l-worldv2.pt")  # or choose yolov8m/l-world.pt
+    model.set_classes(["glass", ])
+    results = model.predict(rgb_image, conf=0.001)
+    results[0].save("work_dirs/debug/debug_yolo.png")
+
+    coords_copy = np.copy(coords)
+    x_coords = coords_copy[:, 0]
+    y_coords = coords_copy[:, 1]
+
+    valid_points = np.zeros(len(coords_copy), dtype=bool)
+
+    for box in results[0].boxes.xyxy:
+        x1, y1, x2, y2 = box.detach().cpu().numpy()
+        within_box = (x_coords >= x1) & (x_coords <= x2) & (y_coords >= y1) & (y_coords <= y2)
+        valid_points |= within_box
+
+    filtered_coords = coords_copy[valid_points]
+    return filtered_coords
+
+
 def mark_classes(coords, rgb_image, known_names):
     # Iterate through the list of pixel coordinates (u, v) and draw circles on the image
     for i, (u, v, index) in enumerate(coords):
         # Draw a circle on the RGB image at (u, v)
-        cv2.circle(rgb_image, (u, v), radius=5, color=(0, 255, 0), thickness=2)  # Green circles with radius 5
+        cv2.circle(rgb_image, (u, v), radius=3, color=(0, 255, 0), thickness=2)  # Green circles with radius 3
         cv2.putText(rgb_image, known_names[index], (u, v), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 0, 0), 2, cv2.LINE_AA, False)
 
-    cv2.imwrite('work_dirs/debug/modified_rgb_image' + datetime.utcnow().strftime('%H:%M:%S.%f') + ".png", rgb_image)
+    cv2.imwrite('work_dirs/debug/debug_classes' + datetime.utcnow().strftime('%H:%M:%S.%f') + ".png", rgb_image)
 
 
 def show_mask(mask, ax, random_color=False, borders=True):
@@ -237,8 +262,8 @@ def show_masks(image, masks, scores, borders=True):
 
 
 def segmentation_masks(rgb_image, coords):
-    sam2_checkpoint = ROOT_DIR + "/segment-anything-2/checkpoints/sam2_hiera_large.pt"
-    model_cfg = "sam2_hiera_l.yaml"
+    sam2_checkpoint = ROOT_DIR + "/segment-anything-2/checkpoints/sam2.1_hiera_large.pt"
+    model_cfg = "configs/sam2.1/sam2.1_hiera_l.yaml"
 
     sam2_model = build_sam2(model_cfg, sam2_checkpoint, device=torch.device("cuda"))
     predictor = SAM2ImagePredictor(sam2_model)
@@ -248,14 +273,14 @@ def segmentation_masks(rgb_image, coords):
     all_masks = []
     for i, single in enumerate(coords):
         masks, scores, _ = predictor.predict(
-            point_coords=np.array([single[:2]]),
-            point_labels=np.array([1]),
+            point_coords=np.array([single[:2] - [3, 3], ]),
+            point_labels=np.array([1, ]),
             multimask_output=False,
         )
 
         all_masks.append(masks[0])
         mask_image = show_masks(rgb_image, masks, scores, borders=True)
-        cv2.imwrite("work_dirs/mask" + str(i) + ".png", rgb_image + mask_image[:, :, :3] * 10000)
+        cv2.imwrite("work_dirs/debug/debug_mask" + str(i) + ".png", rgb_image + mask_image[:, :, :3] * 100000)
 
     return all_masks
 
@@ -303,19 +328,19 @@ def process_dataset():
         rgb_image = cv2.resize(rgb_image, (640, 360))
         if not ("scene_1_" in rgb_image_path or "scene_2_" in rgb_image_path):
             rgb_image = cv2.cvtColor(rgb_image, cv2.COLOR_RGB2BGR) 
-        cv2.imwrite("work_dirs/rgb.png", rgb_image)
+        #cv2.imwrite("work_dirs/debug/debug_rgb.png", rgb_image)
 
         caps_image = Image.open(caps_image_path)
         caps_image = np.array(caps_image)
         caps_image = cv2.resize(caps_image, (640, 360))
         if not ("scene_1_" in caps_image_path or "scene_2_" in caps_image_path):
             caps_image = cv2.cvtColor(caps_image, cv2.COLOR_RGB2BGR) 
-        cv2.imwrite("work_dirs/caps.png", caps_image)
+        cv2.imwrite("work_dirs/debug/debug_caps.png", caps_image)
 
         depth_array = np.load(depth_image_path)
         depth_array = cv2.resize(depth_array, (640, 360), interpolation = cv2.INTER_NEAREST)
         depth_normalized = (depth_array-np.min(depth_array))/(np.max(depth_array)-np.min(depth_array))
-        cv2.imwrite("work_dirs/depth.png", depth_normalized * 255)
+        #cv2.imwrite("work_dirs/debug/debug_depth.png", depth_normalized * 255)
 
         # Add image metadata to COCO JSON
         coco_json["images"].append({
@@ -348,7 +373,12 @@ def process_dataset():
         axis_gizmo = o3d.geometry.TriangleMesh.create_coordinate_frame(size=0.1, origin=[0, 0, 0])
         o3d.visualization.draw_geometries([inlier_cloud, outlier_cloud, axis_gizmo])
 
-        coords = pixel_coordinates(outlier_cloud, labels, blob_heights, r, caps_image)
+        coords = pixel_coordinates(outlier_cloud, labels, blob_heights, r, caps_image.copy())
+
+        # TO-DO DISCARD NON-GLASS BLOBS BASED ON ZERO-SHOT NETWORK
+        coords = filter_coords_within_boxes(coords, rgb_image)
+
+        # TO-DO MULTIPLE PIXELS PER BLOB FOR BETTER SEGMENTATION
         all_masks = segmentation_masks(rgb_image, coords)
 
         for mask_id, mask in enumerate(all_masks):
@@ -368,21 +398,22 @@ def process_dataset():
             coco_json["annotations"].append({
                 "id": annotation_id,
                 "image_id": image_id,
-                "category_id": int(coords[mask_id][2] + 1),  # Assuming single category, you can extend for multiple categories
+                "category_id": int(coords[mask_id][2] + 1),
                 "bbox": [x, y, w, h],
                 "segmentation": polygons,
                 "area": int(np.sum(mask)),  # Area is the number of pixels in the mask
                 "iscrowd": 0
             })
 
+            # TO-DO ADD ANNOTATION FOR THE TOP CAP (POUR AFFORDANCE CLASS)
             # Increment annotation ID
             annotation_id += 1
 
         mark_classes(coords, rgb_image, KNOWN_NAMES)
 
     # Save COCO JSON to file
-    #with open('coco_annotations.json', 'w') as f:
-    #    json.dump(coco_json, f)
+    with open('coco_annotations_new.json', 'w') as f:
+        json.dump(coco_json, f)
 
 
     
@@ -408,8 +439,8 @@ CAPS_PATHS = []
 
 SCENES_COUNT = 35
 
-for j in range(1):
-    if j+1 == 6: #shiftet scene
+for j in range(SCENES_COUNT):
+    if j+1 == 6: #shift scene
         continue
     if j+1 == 30: #val scene
         continue
