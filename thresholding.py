@@ -163,10 +163,8 @@ def pixel_coordinates(outlier_cloud, labels, blob_heights, r, caps_image):
         # Calculate the centroid of the blob (center of gravity)
         centroid = np.mean(cluster_points, axis=0)
         #original_centroid = np.dot(r_inv, centroid)
-        original_centroid = centroid
         
-        # Extract the 3D coordinates of the original centroid (X, Y, Z)
-        x, y, z = original_centroid
+        x, y, z = centroid
         
         # Project the 3D centroid to 2D pixel coordinates using the intrinsic matrix
         u = (k[0, 0] * x / z) + k[0, 2]
@@ -186,15 +184,42 @@ def pixel_coordinates(outlier_cloud, labels, blob_heights, r, caps_image):
             continue
         
         # Store the pixel coordinates (u, v) and the corresponding 3D centroid
-        coordinates.append((int(u), int(v), index))
+        coordinates.append((int(u), int(v), index, *centroid))
 
-    for i, (u, v, index) in enumerate(coordinates):
+    for i, (u, v, index, _, _, _) in enumerate(coordinates):
         print(f"Blob {i}: Pixel coordinates: ({u}, {v}), Name: {KNOWN_NAMES[index]}")
 
     return np.array(coordinates)
 
 
-import numpy as np
+def project_points_to_plane(plane, centroids, rgb_image):
+    k = np.array([[FX, 0, CX], [0, FY, CY], [0,  0,  1]])
+
+    a, b, c, d = plane
+    normal = np.array([a, b, c])
+    normal_norm = np.linalg.norm(normal)
+
+    # Normalize the normal vector
+    normal = normal / normal_norm
+
+    projected_points = []
+    for point in centroids:
+        x, y, z = point
+        # Calculate the perpendicular distance from the point to the plane
+        distance = (a * x + b * y + c * z + d) / normal_norm
+        # Find the projection of the point onto the plane
+        projection = point - distance * normal
+        x, y, z = projection
+
+        u = (k[0, 0] * x / z) + k[0, 2]
+        v = (k[1, 1] * y / z) + k[1, 2]
+        cv2.circle(rgb_image, (int(u), int(v)), radius=3, color=(0, 255, 255), thickness=2) 
+        cv2.imwrite('work_dirs/debug/debug_keypoints.png', rgb_image)
+
+        projected_points.append((int(u), int(v), projection))
+
+    return projected_points
+
 
 def filter_coords_within_boxes(coords, rgb_image):
     if len(coords) == 0:
@@ -373,10 +398,10 @@ def process_dataset():
         axis_gizmo = o3d.geometry.TriangleMesh.create_coordinate_frame(size=0.1, origin=[0, 0, 0])
         o3d.visualization.draw_geometries([inlier_cloud, outlier_cloud, axis_gizmo])
 
-        coords = pixel_coordinates(outlier_cloud, labels, blob_heights, r, caps_image.copy())
-
-        # TO-DO DISCARD NON-GLASS BLOBS BASED ON ZERO-SHOT NETWORK
-        coords = filter_coords_within_boxes(coords, rgb_image)
+        cap_centers = pixel_coordinates(outlier_cloud, labels, blob_heights, r, caps_image.copy())
+        plane_centroids = project_points_to_plane([a, b, c, d], cap_centers[:, 3:], rgb_image.copy())
+        #TO-DO Add plane centroids as a separate keypoints class into the detection json
+        coords = filter_coords_within_boxes(cap_centers[:, :3], rgb_image)
 
         # TO-DO MULTIPLE PIXELS PER BLOB FOR BETTER SEGMENTATION
         all_masks = segmentation_masks(rgb_image, coords)
@@ -406,7 +431,6 @@ def process_dataset():
             })
 
             # TO-DO ADD ANNOTATION FOR THE TOP CAP (POUR AFFORDANCE CLASS)
-            # Increment annotation ID
             annotation_id += 1
 
         mark_classes(coords, rgb_image, KNOWN_NAMES)
