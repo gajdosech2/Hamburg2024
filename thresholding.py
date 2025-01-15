@@ -8,6 +8,7 @@ from pycocotools import mask as mask_util
 import os
 import json
 import cv2
+import copy
 from datetime import datetime
 
 ROOT_DIR = "/home/g/gajdosech2/"
@@ -242,7 +243,7 @@ def filter_coords_within_boxes(coords, rgb_image):
         valid_points |= within_box
 
     filtered_coords = coords_copy[valid_points]
-    return filtered_coords
+    return filtered_coords.astype(int)
 
 
 def mark_classes(coords, rgb_image, known_names):
@@ -286,7 +287,7 @@ def show_masks(image, masks, scores, borders=True):
     return mask_image
 
 
-def segmentation_masks(rgb_image, coords):
+def segmentation_masks(rgb_image, coords, centroids=None):
     sam2_checkpoint = ROOT_DIR + "/segment-anything-2/checkpoints/sam2.1_hiera_large.pt"
     model_cfg = "configs/sam2.1/sam2.1_hiera_l.yaml"
 
@@ -296,10 +297,10 @@ def segmentation_masks(rgb_image, coords):
     predictor.set_image(rgb_image)
 
     all_masks = []
-    for i, single in enumerate(coords):
+    for i, cap in enumerate(coords):
         masks, scores, _ = predictor.predict(
-            point_coords=np.array([single[:2] - [3, 3], ]),
-            point_labels=np.array([1, ]),
+            point_coords=np.array([cap[:2], centroids[i][:2]]),
+            point_labels=np.array([1, 1]),
             multimask_output=False,
         )
 
@@ -395,16 +396,34 @@ def process_dataset():
         if labels.shape[0] == 0:
             continue
 
-        axis_gizmo = o3d.geometry.TriangleMesh.create_coordinate_frame(size=0.1, origin=[0, 0, 0])
-        o3d.visualization.draw_geometries([inlier_cloud, outlier_cloud, axis_gizmo])
-
         cap_centers = pixel_coordinates(outlier_cloud, labels, blob_heights, r, caps_image.copy())
         plane_centroids = project_points_to_plane([a, b, c, d], cap_centers[:, 3:], rgb_image.copy())
-        #TO-DO Add plane centroids as a separate keypoints class into the detection json
-        coords = filter_coords_within_boxes(cap_centers[:, :3], rgb_image)
 
-        # TO-DO MULTIPLE PIXELS PER BLOB FOR BETTER SEGMENTATION
-        all_masks = segmentation_masks(rgb_image, coords)
+        # Load the glass 3D mesh
+        mesh = o3d.io.read_triangle_mesh("data/Cup_Made_By_Tyro_Smith.ply")
+        mesh.compute_vertex_normals()
+
+        transformed_meshes = []
+        spheres = []
+        for kp in plane_centroids:
+            # Create a sphere mesh
+            sphere = o3d.geometry.TriangleMesh.create_sphere(radius=0.05)
+            sphere.translate(kp[2])  # Move the sphere to the keypoint position
+            sphere.paint_uniform_color([0.0, 1.0, 0.0])  # Set sphere color
+            spheres.append(sphere)
+
+            r = find_rotation(-a, -b, -c)
+            transformed_mesh = copy.deepcopy(mesh)
+            transformed_mesh.scale(1/20, center=(0, 0, 0))
+            transformed_mesh.rotate(np.linalg.inv(r))
+            transformed_mesh.translate(kp[2] + np.linalg.inv(r).dot(np.array([0, 0, 2.83157/20])), relative=False)
+            transformed_meshes.append(transformed_mesh)
+
+        coords = filter_coords_within_boxes(cap_centers[:, :3], rgb_image)
+        all_masks = segmentation_masks(rgb_image, coords, plane_centroids)
+
+        axis_gizmo = o3d.geometry.TriangleMesh.create_coordinate_frame(size=0.1, origin=[0, 0, 0])
+        o3d.visualization.draw_geometries([inlier_cloud, outlier_cloud, axis_gizmo] + spheres + transformed_meshes)
 
         for mask_id, mask in enumerate(all_masks):
             mask = mask.astype(np.uint8)
@@ -430,7 +449,22 @@ def process_dataset():
                 "iscrowd": 0
             })
 
-            # TO-DO ADD ANNOTATION FOR THE TOP CAP (POUR AFFORDANCE CLASS)
+            kp_segm = [plane_centroids[mask_id][0] - 15, plane_centroids[mask_id][1] - 15, 
+                       plane_centroids[mask_id][0] + 15, plane_centroids[mask_id][1] - 15, 
+                       plane_centroids[mask_id][0] + 15, plane_centroids[mask_id][1] + 15, 
+                       plane_centroids[mask_id][0] - 15, plane_centroids[mask_id][1] + 15, ]
+            # Add keypoint annotations for the object
+            coco_json["annotations"].append({
+                "id": 1000 + annotation_id,
+                "image_id": image_id,
+                "category_id": len(KNOWN_NAMES) + 1,
+                "bbox": [plane_centroids[mask_id][0], plane_centroids[mask_id][1], 30, 30],
+                "segmentation": kp_segm,
+                "area": 30 * 30,
+                "iscrowd": 0
+            })
+
+            # TO-DO ADD ANNOTATION FOR THE TOP CAP (POUR AFFORDANCE CLASS) SHOULD WORK WITH GREEN CAPS
             annotation_id += 1
 
         mark_classes(coords, rgb_image, KNOWN_NAMES)
@@ -463,7 +497,7 @@ CAPS_PATHS = []
 
 SCENES_COUNT = 35
 
-for j in range(SCENES_COUNT):
+for j in range(10, SCENES_COUNT):
     if j+1 == 6: #shift scene
         continue
     if j+1 == 30: #val scene
