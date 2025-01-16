@@ -96,6 +96,28 @@ def find_rotation(a, b, c):
     return o3d.geometry.get_rotation_matrix_from_axis_angle(rotation_axis * angle)
 
 
+def place_models(plane_centroids, a, b, c):
+    # Load the glass 3D mesh
+    mesh = o3d.io.read_triangle_mesh("data/Cup_Made_By_Tyro_Smith.ply")
+    mesh.compute_vertex_normals()
+
+    transformed_meshes = []
+    spheres = []
+    for kp in plane_centroids:
+        sphere = o3d.geometry.TriangleMesh.create_sphere(radius=0.05)
+        sphere.translate(kp[2])  # Move the sphere to the keypoint position
+        sphere.paint_uniform_color([0.0, 1.0, 0.0])  # Set sphere color
+        spheres.append(sphere)
+
+        r = find_rotation(-a, -b, -c)
+        transformed_mesh = copy.deepcopy(mesh)
+        transformed_mesh.scale(1/20, center=(0, 0, 0))
+        transformed_mesh.rotate(np.linalg.inv(r))
+        transformed_mesh.translate(kp[2] + np.linalg.inv(r).dot(np.array([0, 0, 2.83157/20])), relative=False)
+        transformed_meshes.append(transformed_mesh)
+    return transformed_meshes
+
+
 def threshold_blobs(outlier_cloud, a, b, c, d):
     labels = np.array(outlier_cloud.cluster_dbscan(eps=0.02, min_points=500, print_progress=True))
 
@@ -332,6 +354,7 @@ def binary_mask_to_polygon(binary_mask):
 
     return polygons
 
+
 def process_dataset():
     # Initialize COCO JSON structure
     coco_json = {
@@ -342,7 +365,8 @@ def process_dataset():
                        {"id": 3, "name": "water_glass"}, 
                        {"id": 4, "name": "beer_glass"}, 
                        {"id": 5, "name": "wine_glass"},
-                       {"id": 6, "name": "high_glass"}]  # Add more categories if needed
+                       {"id": 6, "name": "high_glass"},
+                       {"id": 7, "name": "key_point"}] 
     }
 
     annotation_id = 1
@@ -378,13 +402,11 @@ def process_dataset():
 
         pc = depth_2_pc(FX, FY, CX, CY, depth_array)
         pc = np.swapaxes(pc, 0, 1)
-
         pcd = o3d.geometry.PointCloud()
         pcd.points = o3d.utility.Vector3dVector(pc)
 
         a, b, c, d, inliers = fit_plane(pcd)
         r = find_rotation(a, b, c)
-
         #pcd.rotate(r, center=(0, 0, 0))
 
         inlier_cloud = pcd.select_by_index(inliers)
@@ -392,39 +414,22 @@ def process_dataset():
 
         outlier_cloud = pcd.select_by_index(inliers, invert=True)
         labels, blob_heights = threshold_blobs(outlier_cloud, a, b, c, d)
-
         if labels.shape[0] == 0:
             continue
-
         cap_centers = pixel_coordinates(outlier_cloud, labels, blob_heights, r, caps_image.copy())
+        if len(cap_centers) == 0:
+            continue
+
         plane_centroids = project_points_to_plane([a, b, c, d], cap_centers[:, 3:], rgb_image.copy())
-
-        # Load the glass 3D mesh
-        mesh = o3d.io.read_triangle_mesh("data/Cup_Made_By_Tyro_Smith.ply")
-        mesh.compute_vertex_normals()
-
-        transformed_meshes = []
-        spheres = []
-        for kp in plane_centroids:
-            # Create a sphere mesh
-            sphere = o3d.geometry.TriangleMesh.create_sphere(radius=0.05)
-            sphere.translate(kp[2])  # Move the sphere to the keypoint position
-            sphere.paint_uniform_color([0.0, 1.0, 0.0])  # Set sphere color
-            spheres.append(sphere)
-
-            r = find_rotation(-a, -b, -c)
-            transformed_mesh = copy.deepcopy(mesh)
-            transformed_mesh.scale(1/20, center=(0, 0, 0))
-            transformed_mesh.rotate(np.linalg.inv(r))
-            transformed_mesh.translate(kp[2] + np.linalg.inv(r).dot(np.array([0, 0, 2.83157/20])), relative=False)
-            transformed_meshes.append(transformed_mesh)
-
+        transformed_meshes = place_models(plane_centroids, a, b, c)
         coords = filter_coords_within_boxes(cap_centers[:, :3], rgb_image)
+        if len(coords) == 0:
+            continue
+
         all_masks = segmentation_masks(rgb_image, coords, plane_centroids)
 
         axis_gizmo = o3d.geometry.TriangleMesh.create_coordinate_frame(size=0.1, origin=[0, 0, 0])
-        o3d.visualization.draw_geometries([inlier_cloud, outlier_cloud, axis_gizmo] + spheres + transformed_meshes)
-
+        o3d.visualization.draw_geometries([inlier_cloud, outlier_cloud, axis_gizmo] + transformed_meshes)
         for mask_id, mask in enumerate(all_masks):
             mask = mask.astype(np.uint8)
             mask = cv2.resize(mask, (1280, 720), interpolation = cv2.INTER_NEAREST)
@@ -434,8 +439,6 @@ def process_dataset():
             if w > 350: #bad mask
                 continue
 
-            # Convert mask to format for COCO
-            # rle_mask = binary_mask_to_rle(mask)
             polygons = binary_mask_to_polygon(mask)
 
             # Add annotation data for the object
@@ -449,17 +452,19 @@ def process_dataset():
                 "iscrowd": 0
             })
 
-            kp_segm = [plane_centroids[mask_id][0] - 15, plane_centroids[mask_id][1] - 15, 
-                       plane_centroids[mask_id][0] + 15, plane_centroids[mask_id][1] - 15, 
-                       plane_centroids[mask_id][0] + 15, plane_centroids[mask_id][1] + 15, 
-                       plane_centroids[mask_id][0] - 15, plane_centroids[mask_id][1] + 15, ]
+            kp_x = plane_centroids[mask_id][0] * 2
+            kp_y = plane_centroids[mask_id][1] * 2
+            kp_segm = [kp_x - 15, kp_y - 15, 
+                       kp_x + 15, kp_y - 15, 
+                       kp_x + 15, kp_y + 15, 
+                       kp_x - 15, kp_y + 15, ]
             # Add keypoint annotations for the object
             coco_json["annotations"].append({
-                "id": 1000 + annotation_id,
+                "id": 1000000 + annotation_id,
                 "image_id": image_id,
                 "category_id": len(KNOWN_NAMES) + 1,
-                "bbox": [plane_centroids[mask_id][0], plane_centroids[mask_id][1], 30, 30],
-                "segmentation": kp_segm,
+                "bbox": [kp_x - 15, kp_y - 15, 30, 30],
+                "segmentation": [kp_segm],
                 "area": 30 * 30,
                 "iscrowd": 0
             })
@@ -497,7 +502,7 @@ CAPS_PATHS = []
 
 SCENES_COUNT = 35
 
-for j in range(10, SCENES_COUNT):
+for j in range(SCENES_COUNT):
     if j+1 == 6: #shift scene
         continue
     if j+1 == 30: #val scene

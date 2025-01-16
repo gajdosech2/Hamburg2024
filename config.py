@@ -51,10 +51,12 @@ from mmdet.engine.hooks import DetVisualizationHook
 from mmdet.visualization import DetLocalVisualizer
 from mmengine.visualization import TensorboardVisBackend
 
+from rtmdet_ins_heat_head import RTMDetHeatInsSepBNHead
+
 backend_args = None
 data_root = "/home/g/gajdosech2/Hamburg2024/"
-train_annotations_file = "coco_annotations_new.json"
-test_annotations_file = "coco_annotations_new.json"
+train_annotations_file = "coco_annotations.json"
+test_annotations_file = "coco_annotations.json"
 train_images_dir = ""
 test_images_dir = ""
 
@@ -117,8 +119,8 @@ model = dict(
         act_cfg=dict(type=SiLU, inplace=True),
     ),
     bbox_head=dict(
-        type=RTMDetInsSepBNHead,
-        num_classes=6,
+        type=RTMDetHeatInsSepBNHead,
+        num_classes=7,
         in_channels=192,
         stacked_convs=2,
         share_conv=True,
@@ -182,7 +184,7 @@ train_pipeline = [
     #    max_cached_images=10,
     #    pad_val=(114, 114, 114),
     #),
-    dict(type=FilterAnnotations, min_gt_bbox_wh=(1, 1)),
+    #dict(type=FilterAnnotations, min_gt_bbox_wh=(1, 1)),
     dict(type=PackDetInputs),
 ]
 
@@ -195,9 +197,9 @@ train_dataloader = dict(
     dataset=dict(
         type=CocoDataset,
         metainfo=dict(
-            classes = ("shot_glass", "whisky_glass", "water_glass", "beer_glass", "wine_glass", "high_glass"),
+            classes = ("shot_glass", "whisky_glass", "water_glass", "beer_glass", "wine_glass", "high_glass", "key_point"),
             palette = [
-                (250, 0, 0), (0, 250, 0), (0, 0, 250), (250, 250, 0), (250, 0, 250), (0, 250, 250)
+                (250, 0, 0), (0, 250, 0), (0, 0, 250), (250, 250, 0), (250, 0, 250), (0, 250, 250), (250, 250, 250)
             ]),
         data_root=data_root,
         ann_file=train_annotations_file,
