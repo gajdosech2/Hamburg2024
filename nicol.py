@@ -1,4 +1,5 @@
 import cv2
+import numpy as np
 from ultralytics import YOLO
 import mmcv
 from mmdet.apis import init_detector, inference_detector
@@ -16,10 +17,17 @@ visualizer = VISUALIZERS.build(rtmdet_model.cfg.visualizer)
 visualizer.dataset_meta = rtmdet_model.dataset_meta
 
 rtmdet_result = inference_detector(rtmdet_model, image)
+
+#heatmap = rtmdet_result.pred_instances.heatmap.detach().cpu().numpy()[0]
+#heatmap_normalized = cv2.normalize((heatmap * 255).astype(np.uint8), None, 0, 255, cv2.NORM_MINMAX)
+#heatmap_normalized = heatmap_normalized.astype(np.uint8)
+#heatmap_colored = cv2.applyColorMap(heatmap_normalized, cv2.COLORMAP_JET)
+#cv2.imwrite(f"heatmap.png", heatmap_colored)
+
 print(rtmdet_result.pred_instances.bboxes.detach().cpu().numpy())
 print([CLASS_NAMES[i] for i in rtmdet_result.pred_instances.labels.detach().cpu().numpy()])
 print(rtmdet_result.pred_instances.scores.detach().cpu().numpy())
-visualizer.add_datasample('result', image, data_sample=rtmdet_result, draw_gt = False, wait_time=0, pred_score_thr=0.3)
+visualizer.add_datasample('result', image, data_sample=rtmdet_result, draw_gt = False, wait_time=0, pred_score_thr=0.1)
 cv2.imwrite('prediction_rtmdet.png', visualizer.get_image())
 
 

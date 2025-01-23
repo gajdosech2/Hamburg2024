@@ -88,8 +88,6 @@ class RTMDetHeatInsSepBNHead(RTMDetInsSepBNHead):
             if not valid_mask.all():
                 results = results[valid_mask]
 
-        heatmap_colored = None
-
         # TODO: deal with `with_nms` and `nms_cfg=None` in test_cfg
         assert with_nms, 'with_nms must be True for RTMDet-Ins'
         if results.bboxes.numel() > 0:
@@ -97,7 +95,7 @@ class RTMDetHeatInsSepBNHead(RTMDetInsSepBNHead):
             k = cv2.getGaussianKernel(kernel_size, 0)
             kernel = np.outer(k, k)
 
-            cid = 8
+            cid = 6
             proposals = results.bboxes[results.labels == cid]
             scores = results.scores[results.labels == cid].detach().cpu().numpy()
             bounding_boxes = proposals.detach().cpu().numpy()
@@ -129,20 +127,13 @@ class RTMDetHeatInsSepBNHead(RTMDetInsSepBNHead):
                 except:
                     continue
 
-                heatmap_tensor = torch.zeros(1, heatmap.shape[0], heatmap.shape[1], device=results.bboxes.device)
-                heatmap_tensor[0] = torch.from_numpy(heatmap).float().to(results.bboxes.device)
-                heatmap_tensor = heatmap_tensor.repeat(len(results.bboxes), 1, 1)
-                results.heatmap = heatmap_tensor
+            heatmap_tensor = torch.zeros(1, heatmap.shape[0], heatmap.shape[1], device=results.bboxes.device)
+            heatmap_tensor[0] = torch.from_numpy(heatmap).float().to(results.bboxes.device)
+            heatmap_tensor = heatmap_tensor.repeat(len(results.bboxes), 1, 1)
+            results.heatmap = heatmap_tensor
 
-                np.save('heatmap.npy', heatmap)
-                # Normalize the heatmap to the range 0-255
-                heatmap_normalized = cv2.normalize((heatmap * 255).astype(np.uint8), None, 0, 255, cv2.NORM_MINMAX)
-                heatmap_normalized = heatmap_normalized.astype(np.uint8)
-                heatmap_colored = cv2.applyColorMap(heatmap_normalized, cv2.COLORMAP_JET)
-                cv2.imwrite("heatmap_colored_" + str(cid) + ".png", heatmap_colored)
-                cv2.imwrite("heatmap_normalized_" + str(cid) + ".png", heatmap * 255 * 10)
 
-            results = results[results.labels == 0]
+            results = results[results.labels < cid]
 
             bboxes = get_box_tensor(results.bboxes)
             det_bboxes, keep_idxs = batched_nms(bboxes, results.scores,

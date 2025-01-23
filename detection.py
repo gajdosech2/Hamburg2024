@@ -1,4 +1,5 @@
 import mmcv
+import numpy as np
 import matplotlib.pyplot as plt
 from pycocotools.coco import COCO
 from mmdet.apis import init_detector, inference_detector
@@ -131,18 +132,26 @@ def visualize_gt(cfg):
 
 
 def inference():
-    checkpoint_file = ROOT_DIR + '/Hamburg2024/work_dirs/epoch_400_mosaic.pth'
+    checkpoint_file = ROOT_DIR + '/Hamburg2024/work_dirs/epoch_400.pth'
     model = init_detector(CONFIG_FILE, checkpoint_file, device='cpu') 
     visualizer = VISUALIZERS.build(model.cfg.visualizer)
     visualizer.dataset_meta = model.dataset_meta
 
     for i in range(25):
         print(i)
-        image = mmcv.imread(ROOT_DIR + f'/Hamburg2024/dataset/scene_6_transparent/head_frame_img/{i}.png', channel_order='rgb')
+        image = mmcv.imread(ROOT_DIR + f'/Hamburg2024/dataset/scene_30_transparent/head_frame_img/{i}.png', channel_order='rgb')
         image = cv2.resize(image, (640, 360))
         result = inference_detector(model, image)
 
-        class_names = ["shot_glass", "whisky_glass", "water_glass", "beer_glass", "wine_glass", "high_glass"]
+        heatmap = result.pred_instances.heatmap.detach().cpu().numpy()[0]
+        # Normalize the heatmap to the range 0-255
+        heatmap_normalized = cv2.normalize((heatmap * 255).astype(np.uint8), None, 0, 255, cv2.NORM_MINMAX)
+        heatmap_normalized = heatmap_normalized.astype(np.uint8)
+        heatmap_colored = cv2.applyColorMap(heatmap_normalized, cv2.COLORMAP_JET)
+        cv2.imwrite(f"work_dirs/pred/heatmap{i}.png", heatmap_colored)
+        # cv2.imwrite("heatmap_normalized_" + ".png", heatmap * 255 * 10)
+
+        class_names = ["shot_glass", "whisky_glass", "water_glass", "beer_glass", "wine_glass", "high_glass", "key_point"]
         result.pred_instances.bboxes
         print([class_names[i] for i in result.pred_instances.labels])
         print(result.pred_instances.scores)
@@ -167,6 +176,6 @@ cfg.work_dir = "work_dirs/"
 
 #visualize_gt(cfg)
 
-Runner.from_cfg(cfg).train()
+#Runner.from_cfg(cfg).train()
 
-#inference()
+inference()
