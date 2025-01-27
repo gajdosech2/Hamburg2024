@@ -12,7 +12,7 @@ image = cv2.resize(mmcv.imread(ROOT_DIR + 'sample.png', channel_order='rgb'), (6
 image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
 
 # Our pre-trained RTMDet Model
-rtmdet_model = init_detector(ROOT_DIR + 'config.py', ROOT_DIR + 'checkpoint.pth', device='cpu') 
+rtmdet_model = init_detector(ROOT_DIR + 'config.py', ROOT_DIR + 'work_dirs/epoch_150.pth', device='cpu') 
 visualizer = VISUALIZERS.build(rtmdet_model.cfg.visualizer)
 visualizer.dataset_meta = rtmdet_model.dataset_meta
 

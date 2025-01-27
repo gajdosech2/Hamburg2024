@@ -53,15 +53,15 @@ from mmengine.visualization import TensorboardVisBackend
 
 backend_args = None
 data_root = "/home/g/gajdosech2/Hamburg2024/"
-train_annotations_file = "coco_annotations_new.json"
-test_annotations_file = "coco_annotations_new.json"
+train_annotations_file = "coco_annotations.json"
+test_annotations_file = "coco_annotations_val.json"
 train_images_dir = ""
 test_images_dir = ""
 
-max_epochs = 1000
+max_epochs = 600
 lr = 0.01
-val_interval = checkpoint_interval = 200
-batch_size = 8
+val_interval = checkpoint_interval = 150
+batch_size = 6
 num_workers = 8
 
 default_scope = None
@@ -143,8 +143,8 @@ model = dict(
     test_cfg=dict(
         nms_pre=100,
         min_bbox_size=0,
-        score_thr=0.35,
-        nms=dict(type="nms", iou_threshold=0.6),
+        score_thr=0.2,
+        nms=dict(type="nms", iou_threshold=0.5),
         max_per_img=10,
         mask_thr_binary=0.5,
     ),
@@ -162,7 +162,7 @@ train_pipeline = [
     dict(
         type=RandomResize,
         scale=(1280, 1280),
-        ratio_range=(0.5, 1.5),
+        ratio_range=(0.5, 1.2),
         resize_type=Resize,
         keep_ratio=True,
     ),
