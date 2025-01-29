@@ -178,6 +178,6 @@ cfg.work_dir = "work_dirs/"
 
 #visualize_gt(cfg)
 
-#Runner.from_cfg(cfg).train()
+Runner.from_cfg(cfg).train()
 
-inference()
+#inference()

@@ -152,7 +152,7 @@ def process_dataset():
         add_coco_detections(all_masks, image_id, coords, plane_centroids, coco_json)
         mark_classes(coords[:, :3].astype(int), rgb_image, KNOWN_NAMES)
 
-    with open('coco_annotations.json', 'w') as f:
+    with open('coco_annotations_small.json', 'w') as f:
         json.dump(coco_json, f)
 
 
@@ -181,7 +181,7 @@ CAPS_PATHS = []
 SCENES_COUNT = 218
 ANNOTATION_ID = 1
 
-for j in range(SCENES_COUNT):
+for j in range(1):
     if not os.path.isdir(f"dataset/scene_{j+1}_caps/"):
         continue
     if j+1 == 6: #shift scene

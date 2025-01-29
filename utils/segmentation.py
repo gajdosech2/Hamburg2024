@@ -22,7 +22,7 @@ def filter_coords_yolo(coords, rgb_image, caps_image, green_circle=False):
     coords = filter_coords_within_boxes(coords, results)
 
     if green_circle:
-        model = YOLO("yolov8l-worldv2.pt") 
+        #model = YOLO("yolov8l-worldv2.pt") 
         model.set_classes(["green circle", ])
         results = model.predict(caps_image, conf=0.0003)
         results[0].save("work_dirs/debug/debug_yolo_green.png")
@@ -91,7 +91,7 @@ def segmentation_masks(root_dir, rgb_image, coords, centroids):
     sam2_checkpoint = root_dir + "/segment-anything-2/checkpoints/sam2.1_hiera_large.pt"
     model_cfg = "configs/sam2.1/sam2.1_hiera_l.yaml"
 
-    sam2_model = build_sam2(model_cfg, sam2_checkpoint, device=torch.device("cuda"))
+    sam2_model = build_sam2(model_cfg, sam2_checkpoint, device=torch.device("cuda:1"))
     predictor = SAM2ImagePredictor(sam2_model)
 
     predictor.set_image(rgb_image)
@@ -117,7 +117,7 @@ def binary_mask_to_rle(binary_mask):
     return rle
 
 
-def binary_mask_to_polygon(binary_mask):
+def binary_mask_to_polygon_fragmented(binary_mask):
     binary_mask = binary_mask.astype(np.uint8)
     contours, _ = cv2.findContours(binary_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
 
@@ -128,3 +128,14 @@ def binary_mask_to_polygon(binary_mask):
             polygons.append(contour)
 
     return polygons
+
+
+def binary_mask_to_polygon(binary_mask):
+    binary_mask = binary_mask.astype(np.uint8)
+    contours, _ = cv2.findContours(binary_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    all_points = np.vstack(contours) 
+    hull = cv2.convexHull(all_points)
+    convex_polygon = hull.flatten().tolist()
+    if len(convex_polygon) < 6: 
+        return []
+    return [convex_polygon] 

@@ -1,3 +1,5 @@
 work_dirs/
 dataset/
 rtmdet-ins_*
+*__pycache__
+utils/__pycache__/

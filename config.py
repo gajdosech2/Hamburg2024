@@ -49,18 +49,18 @@ from mmengine.runner import LogProcessor
 
 from mmdet.engine.hooks import DetVisualizationHook
 from mmdet.visualization import DetLocalVisualizer
-from mmengine.visualization import TensorboardVisBackend
+from mmengine.visualization import TensorboardVisBackend, WandbVisBackend, NeptuneVisBackend
 
 backend_args = None
 data_root = "/home/g/gajdosech2/Hamburg2024/"
-train_annotations_file = "coco_annotations.json"
-test_annotations_file = "coco_annotations_val.json"
+train_annotations_file = "result.json"
+test_annotations_file = "data/coco_annotations_val.json"
 train_images_dir = ""
 test_images_dir = ""
 
-max_epochs = 600
+max_epochs = 1000
 lr = 0.01
-val_interval = checkpoint_interval = 150
+val_interval = checkpoint_interval = 20
 batch_size = 6
 num_workers = 8
 
@@ -79,7 +79,11 @@ env_cfg = dict(
     dist_cfg=dict(backend="nccl"),
 )
 timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
-vis_backends = [dict(type=TensorboardVisBackend) ]
+vis_backends = [
+    dict(type='TensorboardVisBackend'),
+    dict(type='WandbVisBackend', init_kwargs=dict(project="TransparentObjects")),
+    dict(type='NeptuneVisBackend', init_kwargs=dict(project="l.gajdosech/TransparentObjects")),
+    ]
 visualizer = dict(type=DetLocalVisualizer, vis_backends=vis_backends, name="visualizer")
 log_processor = dict(type=LogProcessor, window_size=50, by_epoch=True)
 
@@ -92,8 +96,8 @@ model = dict(
     type=RTMDet,
     data_preprocessor=dict(
         type=DetDataPreprocessor,
-        mean=[103.53, 116.28, 123.675],
-        std=[57.375, 57.12, 58.395],
+        #mean=[103.53, 116.28, 123.675],
+        #std=[57.375, 57.12, 58.395],
         bgr_to_rgb=False,
         batch_augments=None,
     ),
@@ -129,7 +133,10 @@ model = dict(
         anchor_generator=dict(type=MlvlPointGenerator, offset=0, strides=[8, 16, 32]),
         bbox_coder=dict(type=DistancePointBBoxCoder),
         loss_cls=dict(
-            type=QualityFocalLoss, use_sigmoid=True, beta=2.0, loss_weight=1.0
+            type=QualityFocalLoss, 
+            use_sigmoid=True, 
+            beta=0.5, 
+            loss_weight=1.0
         ),
         loss_bbox=dict(type=CIoULoss, loss_weight=2.0),
         loss_mask=dict(type=DiceLoss, loss_weight=3.0, eps=5e-6, reduction="mean"),
@@ -158,7 +165,12 @@ train_pipeline = [
     dict(type=LoadAnnotations, with_bbox=True, with_mask=True),
     dict(type=Resize, scale=(640, 640), keep_ratio=True),
     dict(type=Pad, size=(640, 640), pad_val=dict(img=(114, 114, 114))),
-    dict(type=CachedMosaic, img_scale=(640, 640), pad_val=114.0),
+    dict(
+        type=CachedMosaic, 
+        img_scale=(640, 640), 
+        pad_val=114.0,
+        prob=0.5
+    ),
     dict(
         type=RandomResize,
         scale=(1280, 1280),
