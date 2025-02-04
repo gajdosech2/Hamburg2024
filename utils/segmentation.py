@@ -13,7 +13,7 @@ from sam2.build_sam import build_sam2 # type: ignore
 from sam2.sam2_image_predictor import SAM2ImagePredictor # type: ignore
 
 
-def filter_coords_yolo(coords, rgb_image, caps_image, green_circle=False):
+def filter_coords_yolo(coords, rgb_image, caps_image, circle=False):
     model = YOLO("yolov8l-worldv2.pt") 
     model.set_classes(["glass", ])
     results = model.predict(rgb_image, conf=0.001)
@@ -21,11 +21,11 @@ def filter_coords_yolo(coords, rgb_image, caps_image, green_circle=False):
 
     coords = filter_coords_within_boxes(coords, results)
 
-    if green_circle:
+    if circle:
         #model = YOLO("yolov8l-worldv2.pt") 
         model.set_classes(["green circle", ])
         results = model.predict(caps_image, conf=0.0003)
-        results[0].save("work_dirs/debug/debug_yolo_green.png")
+        results[0].save("work_dirs/debug/debug_yolo_circle.png")
 
         coords = filter_coords_within_boxes(coords, results)
 
@@ -118,6 +118,7 @@ def binary_mask_to_rle(binary_mask):
 
 
 def binary_mask_to_polygon_fragmented(binary_mask):
+    area = int(np.sum(binary_mask))
     binary_mask = binary_mask.astype(np.uint8)
     contours, _ = cv2.findContours(binary_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
 
@@ -127,7 +128,7 @@ def binary_mask_to_polygon_fragmented(binary_mask):
         if len(contour) >= 6:  # Minimum 3 points (6 values) to form a polygon
             polygons.append(contour)
 
-    return polygons
+    return polygons, area
 
 
 def binary_mask_to_polygon(binary_mask):
@@ -135,7 +136,8 @@ def binary_mask_to_polygon(binary_mask):
     contours, _ = cv2.findContours(binary_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
     all_points = np.vstack(contours) 
     hull = cv2.convexHull(all_points)
+    area = cv2.contourArea(hull)
     convex_polygon = hull.flatten().tolist()
     if len(convex_polygon) < 6: 
         return []
-    return [convex_polygon] 
+    return [convex_polygon], area 

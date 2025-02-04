@@ -24,10 +24,10 @@ def add_coco_detections(all_masks, image_id, coords, plane_centroids, coco_json)
         # Create bounding box from mask
         x, y, w, h = cv2.boundingRect(mask.astype(np.uint8))
 
-        if w > 350: #bad mask
+        if w > 300 or w < 10: #bad mask
             continue
 
-        polygons = binary_mask_to_polygon(mask)
+        polygons, area = binary_mask_to_polygon(mask)
 
         # Add annotation data for the object
         coco_json["annotations"].append({
@@ -36,7 +36,7 @@ def add_coco_detections(all_masks, image_id, coords, plane_centroids, coco_json)
                 "category_id": int(coords[mask_id][2] + 1),
                 "bbox": [x, y, w, h],
                 "segmentation": polygons,
-                "area": int(np.sum(mask)),  # Area is the number of pixels in the mask
+                "area": area,
                 "iscrowd": 0
         })
 
@@ -46,16 +46,18 @@ def add_coco_detections(all_masks, image_id, coords, plane_centroids, coco_json)
                     kp_x + 15, kp_y - 15, 
                     kp_x + 15, kp_y + 15, 
                     kp_x - 15, kp_y + 15, ]
+        
         # Add keypoint annotations for the object
-        #coco_json["annotations"].append({
-        #        "id": 1000000 + ANNOTATION_ID,
-        #        "image_id": image_id,
-        #        "category_id": len(KNOWN_NAMES) + 1,
-        #        "bbox": [kp_x - 15, kp_y - 15, 30, 30],
-        #        "segmentation": [kp_segm],
-        #        "area": 30 * 30,
-        #        "iscrowd": 0
-        #})
+        if False:
+            coco_json["annotations"].append({
+                    "id": 1000000 + ANNOTATION_ID,
+                    "image_id": image_id,
+                    "category_id": len(KNOWN_NAMES) + 1,
+                    "bbox": [kp_x - 15, kp_y - 15, 30, 30],
+                    "segmentation": [kp_segm],
+                    "area": 30 * 30,
+                    "iscrowd": 0
+            })
 
         ANNOTATION_ID += 1
 
@@ -77,7 +79,7 @@ def process_dataset():
     cam_matrix = np.array([[FX, 0, CX], [0, FY, CY], [0,  0,  1]])
     cap_color = WOOD_CAP
     dist_threshold = 150
-    green_circle = False
+    circle = False
 
     for image_id, (rgb_image_path, depth_image_path, caps_image_path) in enumerate(zip(RGB_PATHS, DEPTH_PATHS, CAPS_PATHS)):
         # Load RGB and depth images
@@ -125,17 +127,17 @@ def process_dataset():
         labels, blob_heights = threshold_blobs(outlier_cloud, a, b, c, d)
         if labels.shape[0] == 0:
             continue
- 
-        if "scene_121_" in caps_image_path:
+
+        if int(caps_image_path.split("/")[-3].split("_")[1]) > 100:
             cap_color = PLASTIC_CAP
-            dist_threshold = 80
-            green_circle = True
+            dist_threshold = 45
+            circle = True
 
         coords = pixel_coordinates(outlier_cloud, labels, blob_heights, caps_image.copy(), cap_color, dist_threshold, cam_matrix, KNOWN_HEIGHTS)
         if len(coords) == 0:
             continue
 
-        coords = filter_coords_yolo(coords, rgb_image, caps_image, green_circle)
+        coords = filter_coords_yolo(coords, rgb_image, caps_image, circle)
         if len(coords) == 0:
             continue
 
@@ -150,9 +152,9 @@ def process_dataset():
         o3d.visualization.draw_geometries([inlier_cloud, outlier_cloud, axis_gizmo] + transformed_meshes)
         
         add_coco_detections(all_masks, image_id, coords, plane_centroids, coco_json)
-        mark_classes(coords[:, :3].astype(int), rgb_image, KNOWN_NAMES)
+        #mark_classes(coords[:, :3].astype(int), rgb_image, KNOWN_NAMES)
 
-    with open('coco_annotations_small.json', 'w') as f:
+    with open('coco_annotations_val.json', 'w') as f:
         json.dump(coco_json, f)
 
 
@@ -181,7 +183,7 @@ CAPS_PATHS = []
 SCENES_COUNT = 218
 ANNOTATION_ID = 1
 
-for j in range(1):
+for j in range(SCENES_COUNT, 220):
     if not os.path.isdir(f"dataset/scene_{j+1}_caps/"):
         continue
     if j+1 == 6: #shift scene

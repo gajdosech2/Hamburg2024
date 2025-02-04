@@ -8,11 +8,11 @@ from mmdet.registry import VISUALIZERS
 
 ROOT_DIR = "/home/g/gajdosech2/Hamburg2024/"
 CLASS_NAMES = ['shot_glass', 'whisky_glass', 'water_glass', 'beer_glass', 'wine_glass', 'high_glass']
-image = cv2.resize(mmcv.imread(ROOT_DIR + 'sample.png', channel_order='rgb'), (640, 360))
+image = cv2.resize(mmcv.imread(ROOT_DIR + 'data/sample.png', channel_order='rgb'), (640, 360))
 image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
 
 # Our pre-trained RTMDet Model
-rtmdet_model = init_detector(ROOT_DIR + 'config.py', ROOT_DIR + 'work_dirs/epoch_150.pth', device='cpu') 
+rtmdet_model = init_detector(ROOT_DIR + 'config.py', ROOT_DIR + 'work_dirs/epoch_400.pth', device='cpu') 
 visualizer = VISUALIZERS.build(rtmdet_model.cfg.visualizer)
 visualizer.dataset_meta = rtmdet_model.dataset_meta
 
@@ -27,7 +27,7 @@ rtmdet_result = inference_detector(rtmdet_model, image)
 print(rtmdet_result.pred_instances.bboxes.detach().cpu().numpy())
 print([CLASS_NAMES[i] for i in rtmdet_result.pred_instances.labels.detach().cpu().numpy()])
 print(rtmdet_result.pred_instances.scores.detach().cpu().numpy())
-visualizer.add_datasample('result', image, data_sample=rtmdet_result, draw_gt = False, wait_time=0, pred_score_thr=0.1)
+visualizer.add_datasample('result', image, data_sample=rtmdet_result, draw_gt = False, wait_time=0, pred_score_thr=0.38)
 cv2.imwrite('prediction_rtmdet.png', visualizer.get_image())
 
 

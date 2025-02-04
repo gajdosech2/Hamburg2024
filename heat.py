@@ -51,6 +51,9 @@ from mmdet.engine.hooks import DetVisualizationHook
 from mmdet.visualization import DetLocalVisualizer
 from mmengine.visualization import TensorboardVisBackend, WandbVisBackend, NeptuneVisBackend
 
+from utils.rtmdet_ins_heat_head import RTMDetHeatInsSepBNHead
+from augmentations import RandomRGBPermutation
+
 backend_args = None
 data_root = "/home/g/gajdosech2/Hamburg2024/"
 train_annotations_file = "coco_annotations_train.json"
@@ -121,8 +124,8 @@ model = dict(
         act_cfg=dict(type=SiLU, inplace=True),
     ),
     bbox_head=dict(
-        type=RTMDetInsSepBNHead,
-        num_classes=6,
+        type=RTMDetHeatInsSepBNHead,
+        num_classes=7,
         in_channels=192,
         stacked_convs=2,
         share_conv=True,
@@ -135,7 +138,7 @@ model = dict(
         loss_cls=dict(
             type=QualityFocalLoss, 
             use_sigmoid=True, 
-            beta=1.0, 
+            beta=0.5, 
             loss_weight=1.0
         ),
         loss_bbox=dict(type=CIoULoss, loss_weight=2.0),
@@ -148,10 +151,10 @@ model = dict(
         debug=False,
     ),
     test_cfg=dict(
-        nms_pre=100,
+        nms_pre=1000,
         min_bbox_size=0,
-        score_thr=0.2,
-        nms=dict(type="nms", iou_threshold=0.5),
+        score_thr=0.001,
+        nms=dict(type="nms", iou_threshold=0.6),
         max_per_img=10,
         mask_thr_binary=0.5,
     ),
@@ -207,9 +210,9 @@ train_dataloader = dict(
     dataset=dict(
         type=CocoDataset,
         metainfo=dict(
-            classes = ("shot_glass", "whisky_glass", "water_glass", "beer_glass", "wine_glass", "high_glass"),
+            classes = ("shot_glass", "whisky_glass", "water_glass", "beer_glass", "wine_glass", "high_glass", "key_point"),
             palette = [
-                (250, 0, 0), (0, 250, 0), (0, 0, 250), (250, 250, 0), (250, 0, 250), (0, 250, 250)
+                (250, 0, 0), (0, 250, 0), (0, 0, 250), (250, 250, 0), (250, 0, 250), (0, 250, 250), (250, 250, 250)
             ]),
         data_root=data_root,
         ann_file=train_annotations_file,

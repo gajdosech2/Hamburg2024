@@ -1,6 +1,7 @@
 import numpy as np
 import open3d as o3d
 import matplotlib.pyplot as plt
+from skimage.color import rgb2lab
 import cv2
 
 
@@ -43,6 +44,22 @@ def threshold_blobs(outlier_cloud, a, b, c, d):
     return labels, blob_heights
 
 
+def bgr_to_lab(bgr):
+    bgr = np.array(bgr, dtype=np.uint8).reshape(1, 1, 3)  
+    rgb = cv2.cvtColor(bgr, cv2.COLOR_BGR2RGB) / 255.0  
+    lab = rgb2lab(rgb)[0, 0] 
+    return lab
+
+
+def color_distance_lab(bgr_pixel, bgr_target):
+    lab_pixel = bgr_to_lab(bgr_pixel)
+    lab_target = bgr_to_lab(bgr_target)
+    
+    # Only compare A and B channels (ignoring lightness L)
+    distance = np.linalg.norm(lab_pixel[1:] - lab_target[1:])  
+    return distance
+
+
 def pixel_coordinates(outlier_cloud, labels, blob_heights, caps_image, caps_color, dist_threshold, camera_matrix, known_heights):
     #r_inv = np.linalg.inv(r)
     coordinates = []
@@ -78,9 +95,22 @@ def pixel_coordinates(outlier_cloud, labels, blob_heights, caps_image, caps_colo
 
         # Check the color
         pixel_color = caps_image[int(v), int(u)]
-        color_distance = np.linalg.norm(caps_color - pixel_color)
-        if color_distance > dist_threshold:
-             continue
+
+        if dist_threshold > 100:
+            color_distance = np.linalg.norm(caps_color - pixel_color)
+            if color_distance > dist_threshold:
+                continue
+            if pixel_color[0] > pixel_color[1] or pixel_color[1] > pixel_color[2]:
+                continue
+        else:
+            lab_pixel = bgr_to_lab(pixel_color)
+            lab_target = bgr_to_lab(caps_color)
+        
+            # Only compare A and B channels (ignoring lightness L)
+            color_distance = np.linalg.norm(lab_pixel[1:] - lab_target[1:]) 
+            print(f"Color distance: {color_distance}")
+            if color_distance > dist_threshold:
+                continue
 
         cv2.circle(caps_image, (int(u), int(v)), radius=3, color=(0, 255, 0), thickness=2)  # Green circles with radius 3
         cv2.imwrite('work_dirs/debug/debug_circles.png', caps_image)

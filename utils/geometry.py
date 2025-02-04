@@ -38,7 +38,7 @@ def depth_2_pc(fx, fy, cx, cy, depth_array):
             z = depth_array[v, u] / 1000.0  # Convert to meters
             if z == 0:  # Skip invalid points
                 continue
-            if z > 1:
+            if z > 1.0:
                 continue
             x = (u - cx) * z / fx
             y = (v - cy) * z / fy
