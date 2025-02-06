@@ -80,9 +80,9 @@ env_cfg = dict(
 )
 timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
 vis_backends = [
-    dict(type='TensorboardVisBackend'),
+    #dict(type='TensorboardVisBackend'),
     dict(type='WandbVisBackend', init_kwargs=dict(project="TransparentObjects")),
-    dict(type='NeptuneVisBackend', init_kwargs=dict(project="l.gajdosech/TransparentObjects")),
+    #dict(type='NeptuneVisBackend', init_kwargs=dict(project="l.gajdosech/TransparentObjects")),
     ]
 visualizer = dict(type=DetLocalVisualizer, vis_backends=vis_backends, name="visualizer")
 log_processor = dict(type=LogProcessor, window_size=50, by_epoch=True)
