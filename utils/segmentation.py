@@ -103,7 +103,7 @@ def segmentation_masks(root_dir, rgb_image, coords, centroids):
 
         all_masks.append(masks[0])
         mask_image = show_masks(rgb_image, masks, scores, borders=True)
-        cv2.imwrite("work_dirs/debug/debug_mask" + str(i) + ".png", rgb_image + mask_image[:, :, :3] * 100000)
+        cv2.imwrite("work_dirs/debug/debug_mask" + str(i) + ".png", np.clip(rgb_image + mask_image[:, :, :3] * 100000, 0, 255))
 
     return all_masks
 
