@@ -3,3 +3,5 @@ dataset/
 rtmdet-ins_*
 *__pycache__
 utils/__pycache__/
+prediction_*
+*.pt
