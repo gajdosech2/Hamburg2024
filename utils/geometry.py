@@ -8,23 +8,18 @@ def depth_2_pc_distortion(fx, fy, cx, cy, d, depth_array):
     k = np.array([[fx, 0, cx], [0, fy, cy], [0, 0, 1]])
     h, w = depth_array.shape
     
-    # Generate pixel grid
     i, j = np.meshgrid(np.arange(w), np.arange(h))
     pixels = np.stack([i, j], axis=-1).reshape(-1, 2).astype(np.float32)
 
-    # Undistort the pixel coordinates
     undistorted_pixels = cv2.undistortPoints(pixels, k, d, None, k).reshape(h, w, 2)
     
-    # Convert undistorted pixels to normalized coordinates
     x_normalized = (undistorted_pixels[..., 0] - k[0, 2]) / k[0, 0]
     y_normalized = (undistorted_pixels[..., 1] - k[1, 2]) / k[1, 1]
     
-    # Convert to 3D points
     z = depth_array / 1000.0
     x = x_normalized * z
     y = y_normalized * z
     
-    # Stack into an Nx3 point cloud
     point_cloud = np.stack([x, y, z], axis=-1).reshape(-1, 3)
     
     return point_cloud

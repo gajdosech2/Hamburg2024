@@ -21,10 +21,10 @@ ROOT_DIR = "/home/g/gajdosech2/"
 
 os.chdir(ROOT_DIR + "/Hamburg2024")
 
-# register all modules in mmdet into the registries
+# Register all modules in mmdet into the registries
 register_all_modules()
 
-# reduce the number of repeated compilations and improve training speed
+# Reduce the number of repeated compilations and improve training speed
 setup_cache_size_limit_of_dynamo()
 
 def modify_config():
@@ -92,9 +92,7 @@ def visualize_gt(cfg):
     dataset = DATASETS.build(cfg.train_dataloader.dataset)
 
     progress_bar = ProgressBar(len(dataset))
-    i = 0
-    for item in dataset:
-        i += 1
+    for i, item in enumerate(dataset):
         if i > 22:
             break
         img = item['inputs'].permute(1, 2, 0).numpy()
@@ -146,7 +144,6 @@ def inference():
         heatmap = False
         if heatmap:
             heatmap = result.pred_instances.heatmap.detach().cpu().numpy()[0]
-            # Normalize the heatmap to the range 0-255
             heatmap_normalized = cv2.normalize((heatmap * 255).astype(np.uint8), None, 0, 255, cv2.NORM_MINMAX)
             heatmap_normalized = heatmap_normalized.astype(np.uint8)
             heatmap_colored = cv2.applyColorMap(heatmap_normalized, cv2.COLORMAP_JET)

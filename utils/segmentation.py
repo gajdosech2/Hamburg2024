@@ -22,7 +22,6 @@ def filter_coords_yolo(coords, rgb_image, caps_image, circle=False):
     coords = filter_coords_within_boxes(coords, results)
 
     if circle:
-        #model = YOLO("yolov8l-worldv2.pt") 
         model.set_classes(["green circle", ])
         results = model.predict(caps_image, conf=0.0003)
         results[0].save("work_dirs/debug/debug_yolo_circle.png")
@@ -30,7 +29,6 @@ def filter_coords_yolo(coords, rgb_image, caps_image, circle=False):
         coords = filter_coords_within_boxes(coords, results)
 
     return coords
-
 
 
 def filter_coords_within_boxes(coords, results):
@@ -66,8 +64,7 @@ def show_mask(mask, ax, random_color=False, borders=True):
     mask_image =  mask.reshape(h, w, 1) * color.reshape(1, 1, -1)
     if borders:
         contours, _ = cv2.findContours(mask,cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE) 
-        # Try to smooth contours
-        contours = [cv2.approxPolyDP(contour, epsilon=0.01, closed=True) for contour in contours]
+        contours = [cv2.approxPolyDP(contour, epsilon=0.01, closed=True) for contour in contours] # Smooth contours
         mask_image = cv2.drawContours(mask_image, contours, -1, (1, 1, 1, 0.5), thickness=2) 
     ax.imshow(mask_image)
     return mask_image
@@ -117,7 +114,7 @@ def binary_mask_to_rle(binary_mask):
     return rle
 
 
-def binary_mask_to_polygon_fragmented(binary_mask):
+def binary_mask_to_polygon(binary_mask):
     area = int(np.sum(binary_mask))
     binary_mask = binary_mask.astype(np.uint8)
     contours, _ = cv2.findContours(binary_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
@@ -125,13 +122,13 @@ def binary_mask_to_polygon_fragmented(binary_mask):
     polygons = []
     for contour in contours:
         contour = contour.flatten().tolist()
-        if len(contour) >= 6:  # Minimum 3 points (6 values) to form a polygon
+        if len(contour) >= 6:
             polygons.append(contour)
 
     return polygons, area
 
 
-def binary_mask_to_polygon(binary_mask):
+def binary_mask_to_polygon_convex(binary_mask):
     binary_mask = binary_mask.astype(np.uint8)
     contours, _ = cv2.findContours(binary_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
     all_points = np.vstack(contours) 

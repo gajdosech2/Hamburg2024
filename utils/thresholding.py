@@ -11,19 +11,15 @@ def threshold_blobs(outlier_cloud, a, b, c, d):
     if labels.shape[0] == 0:
         return np.array([]), np.array([])
 
-    # Number of clusters
     max_label = labels.max()
 
-    # Visualize the clustered point cloud (each cluster will have a different color)
     colors = plt.get_cmap("tab20")(labels / (max_label if max_label > 0 else 1))
-    colors[labels < 0] = 0  # Assign black to noise points (label = -1)
+    colors[labels < 0] = 0  # Black noise points (label = -1)
     outlier_cloud.colors = o3d.utility.Vector3dVector(colors[:, :3])
 
     blob_heights = []
 
-    # Iterate over each cluster (blob)
     for i in range(max_label + 1):
-        # Select points belonging to the current cluster
         cluster_cloud = outlier_cloud.select_by_index(np.where(labels == i)[0])
         
         # Fit a plane to the blob (cluster) points
@@ -37,7 +33,6 @@ def threshold_blobs(outlier_cloud, a, b, c, d):
         distance = abs(d_blob - d) / np.sqrt(a**2 + b**2 + c**2)
         blob_heights.append((i, distance))
 
-    # Print blob heights
     for i, height in blob_heights:
         print(f"Blob {i} height from table plane: {height*100:.4f} centimeters")
 
@@ -51,53 +46,37 @@ def bgr_to_lab(bgr):
     return lab
 
 
-def color_distance_lab(bgr_pixel, bgr_target):
-    lab_pixel = bgr_to_lab(bgr_pixel)
-    lab_target = bgr_to_lab(bgr_target)
-    
-    # Only compare A and B channels (ignoring lightness L)
-    distance = np.linalg.norm(lab_pixel[1:] - lab_target[1:])  
-    return distance
-
-
 def pixel_coordinates(outlier_cloud, labels, blob_heights, caps_image, caps_color, dist_threshold, camera_matrix, known_heights):
     #r_inv = np.linalg.inv(r)
     coordinates = []
 
     for i, height in blob_heights:
         height = height * 100
-        index = -1
-        best = None
+        best, index = None,-1
         for j, known_height in enumerate(known_heights):
             current = abs(known_height - height)
-            if current < 3: 
-                if best == None or current < best:
-                    best = current
-                    index = j
+            if current < 3 and (best == None or current < best): 
+                best, index = current, j
 
         if index == -1:
             continue
 
-        # Get the points belonging to this blob
         cluster_points = np.asarray(outlier_cloud.select_by_index(np.where(labels == i)[0]).points)
         if len(cluster_points) == 0:
             continue
         
-        # Calculate the centroid of the blob (center of gravity)
         centroid = np.mean(cluster_points, axis=0)
         #original_centroid = np.dot(r_inv, centroid)
         
         x, y, z = centroid
-        
-        # Project the 3D centroid to 2D pixel coordinates using the intrinsic matrix
         u = (camera_matrix[0, 0] * x / z) + camera_matrix[0, 2]
         v = (camera_matrix[1, 1] * y / z) + camera_matrix[1, 2]
 
-        # Check the color
         pixel_color = caps_image[int(v), int(u)]
 
         if dist_threshold > 100:
             color_distance = np.linalg.norm(caps_color - pixel_color)
+            print(f"color distance: {color_distance}")
             if color_distance > dist_threshold:
                 continue
             if pixel_color[0] > pixel_color[1] or pixel_color[1] > pixel_color[2]:
@@ -108,14 +87,12 @@ def pixel_coordinates(outlier_cloud, labels, blob_heights, caps_image, caps_colo
         
             # Only compare A and B channels (ignoring lightness L)
             color_distance = np.linalg.norm(lab_pixel[1:] - lab_target[1:]) 
-            print(f"Color distance: {color_distance}")
+            print(f"color distance: {color_distance}")
             if color_distance > dist_threshold:
                 continue
 
-        cv2.circle(caps_image, (int(u), int(v)), radius=3, color=(0, 255, 0), thickness=2)  # Green circles with radius 3
+        cv2.circle(caps_image, (int(u), int(v)), radius=3, color=(0, 255, 0), thickness=2) 
         cv2.imwrite('work_dirs/debug/debug_circles.png', caps_image)
-
-        # Store the pixel coordinates (u, v) and the corresponding 3D centroid
         coordinates.append((int(u), int(v), index, *centroid))
 
     return np.array(coordinates)
@@ -130,9 +107,7 @@ def project_points_to_plane(plane, centroids, rgb_image, camera_matrix):
     projected_points = []
     for point in centroids:
         x, y, z = point
-        # Calculate the perpendicular distance from the point to the plane
         distance = (a * x + b * y + c * z + d) / normal_norm
-        # Find the projection of the point onto the plane
         projection = point - distance * normal
         x, y, z = projection
 
