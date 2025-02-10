@@ -12,22 +12,36 @@ image = cv2.resize(mmcv.imread(ROOT_DIR + 'data/sample.png', channel_order='rgb'
 image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
 
 # Our pre-trained RTMDet Model
-rtmdet_model = init_detector(ROOT_DIR + 'config.py', ROOT_DIR + 'work_dirs/epoch_400.pth', device='cpu') 
+heatmap = True
+threshold = 0.4
+rtmdet_model = init_detector(ROOT_DIR + 'heat.py', ROOT_DIR + 'checkpoint_wkp.pth', device='cpu') 
+#rtmdet_model = init_detector(ROOT_DIR + 'config.py', ROOT_DIR + 'checkpoint_nokp.pth', device='cpu') 
 visualizer = VISUALIZERS.build(rtmdet_model.cfg.visualizer)
 visualizer.dataset_meta = rtmdet_model.dataset_meta
 
 rtmdet_result = inference_detector(rtmdet_model, image)
-
-#heatmap = rtmdet_result.pred_instances.heatmap.detach().cpu().numpy()[0]
-#heatmap_normalized = cv2.normalize((heatmap * 255).astype(np.uint8), None, 0, 255, cv2.NORM_MINMAX)
-#heatmap_normalized = heatmap_normalized.astype(np.uint8)
-#heatmap_colored = cv2.applyColorMap(heatmap_normalized, cv2.COLORMAP_JET)
-#cv2.imwrite(f"heatmap.png", heatmap_colored)
+if heatmap:
+    bg = image.copy()
+    heatmap = rtmdet_result.pred_instances.heatmap.detach().cpu().numpy()[0]
+    maxima_coords = []
+    for j, (xmin, ymin, xmax, ymax) in enumerate(rtmdet_result.pred_instances.bboxes.detach().cpu().numpy()):
+        if rtmdet_result.pred_instances.scores[j] > threshold:
+            xmin, ymin, xmax, ymax = map(lambda v: int(round(v)), [xmin, ymin, xmax, ymax])
+            xmin, ymin = max(0, xmin), max(0, ymin)
+            xmax, ymax = min(xmax, heatmap.shape[1]), min(ymax, heatmap.shape[0])
+            roi = heatmap[ymin:ymax, xmin:xmax]
+            if roi.size > 0:
+                max_idx = np.unravel_index(np.argmax(roi), roi.shape)
+                max_y, max_x = max_idx 
+                maxima_coords.append((xmin + max_x, ymin + max_y))  
+                cv2.circle(bg, (xmin + max_x, ymin + max_y), radius=3, color=(0, 255, 0), thickness=-1)
+    print(maxima_coords)
+    cv2.imwrite('keypoints_rtmdet.png', bg)
 
 print(rtmdet_result.pred_instances.bboxes.detach().cpu().numpy())
 print([CLASS_NAMES[i] for i in rtmdet_result.pred_instances.labels.detach().cpu().numpy()])
 print(rtmdet_result.pred_instances.scores.detach().cpu().numpy())
-visualizer.add_datasample('result', image, data_sample=rtmdet_result, draw_gt = False, wait_time=0, pred_score_thr=0.38)
+visualizer.add_datasample('result', image, data_sample=rtmdet_result, draw_gt=False, wait_time=0, pred_score_thr=threshold)
 cv2.imwrite('prediction_rtmdet.png', visualizer.get_image())
 
 

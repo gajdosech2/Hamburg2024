@@ -52,7 +52,6 @@ from mmdet.visualization import DetLocalVisualizer
 from mmengine.visualization import TensorboardVisBackend, WandbVisBackend, NeptuneVisBackend
 
 from utils.rtmdet_ins_heat_head import RTMDetHeatInsSepBNHead
-from augmentations import RandomRGBPermutation
 
 backend_args = None
 data_root = "/home/g/gajdosech2/Hamburg2024/"
@@ -64,8 +63,9 @@ test_images_dir = ""
 max_epochs = 500
 lr = 0.01
 val_interval = checkpoint_interval = 50
-batch_size = 6
-num_workers = 8
+batch_size = 4
+num_workers = 6
+ 
 
 default_scope = None
 default_hooks = dict(
@@ -83,9 +83,9 @@ env_cfg = dict(
 )
 timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
 vis_backends = [
-    dict(type='TensorboardVisBackend'),
+    #dict(type='TensorboardVisBackend'),
     dict(type='WandbVisBackend', init_kwargs=dict(project="TransparentObjects")),
-    dict(type='NeptuneVisBackend', init_kwargs=dict(project="l.gajdosech/TransparentObjects")),
+    #dict(type='NeptuneVisBackend', init_kwargs=dict(project="l.gajdosech/TransparentObjects")),
     ]
 visualizer = dict(type=DetLocalVisualizer, vis_backends=vis_backends, name="visualizer")
 log_processor = dict(type=LogProcessor, window_size=50, by_epoch=True)
@@ -138,7 +138,7 @@ model = dict(
         loss_cls=dict(
             type=QualityFocalLoss, 
             use_sigmoid=True, 
-            beta=0.5, 
+            beta=1.0, 
             loss_weight=1.0
         ),
         loss_bbox=dict(type=CIoULoss, loss_weight=2.0),
@@ -152,8 +152,8 @@ model = dict(
     ),
     test_cfg=dict(
         nms_pre=1000,
-        min_bbox_size=0,
-        score_thr=0.001,
+        min_bbox_size=1,
+        score_thr=0.01,
         nms=dict(type="nms", iou_threshold=0.6),
         max_per_img=10,
         mask_thr_binary=0.5,
@@ -172,7 +172,7 @@ train_pipeline = [
         type=CachedMosaic, 
         img_scale=(640, 640), 
         pad_val=114.0,
-        prob=0.5
+        prob=0.8
     ),
     dict(
         type=RandomResize,

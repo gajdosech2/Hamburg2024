@@ -130,14 +130,14 @@ def visualize_gt(cfg):
 
 
 def inference():
-    checkpoint_file = ROOT_DIR + '/Hamburg2024/work_dirs/epoch_300.pth'
+    checkpoint_file = ROOT_DIR + '/Hamburg2024/checkpoint_nokp.pth'
     model = init_detector(CONFIG_FILE, checkpoint_file, device='cpu') 
     visualizer = VISUALIZERS.build(model.cfg.visualizer)
     visualizer.dataset_meta = model.dataset_meta
 
     for i in range(25):
         print(i)
-        image = mmcv.imread(ROOT_DIR + f'/Hamburg2024/dataset/scene_30_transparent/head_frame_img/{i}.png', channel_order='rgb')
+        image = mmcv.imread(ROOT_DIR + f'/Hamburg2024/dataset/scene_220_transparent/head_frame_img/{i}.png', channel_order='rgb')
         image = cv2.resize(image, (640, 360))
         result = inference_detector(model, image)
 
@@ -145,11 +145,21 @@ def inference():
         if heatmap:
             heatmap = result.pred_instances.heatmap.detach().cpu().numpy()[0]
             heatmap_normalized = cv2.normalize((heatmap * 255).astype(np.uint8), None, 0, 255, cv2.NORM_MINMAX)
-            heatmap_normalized = heatmap_normalized.astype(np.uint8)
-            heatmap_colored = cv2.applyColorMap(heatmap_normalized, cv2.COLORMAP_JET)
+            heatmap_colored = cv2.applyColorMap(heatmap_normalized.astype(np.uint8), cv2.COLORMAP_JET)
             cv2.imwrite(f"work_dirs/pred/heatmap{i}.png", heatmap_colored)
-            # cv2.imwrite("heatmap_normalized_" + ".png", heatmap * 255 * 10)
 
+            maxima_coords = []
+            for j, (x, y, w, h) in enumerate(result.pred_instances.bboxes.detach().cpu().numpy()):
+                if result.pred_instances.scores[j] > 0.3:
+                    x, y, w, h = int(round(x)), int(round(y)), int(round(w)), int(round(h))
+                    x_max, y_max = min(x + w, heatmap.shape[1]), min(y + h, heatmap.shape[0])       
+                    roi = heatmap[y:y_max, x:x_max]
+                    if roi.size > 0:           
+                        max_idx = np.unravel_index(np.argmax(roi), roi.shape)
+                        max_y, max_x = max_idx  
+                        maxima_coords.append((x + max_x, y + max_y))     
+            print(maxima_coords)
+            
         class_names = ["shot_glass", "whisky_glass", "water_glass", "beer_glass", "wine_glass", "high_glass", "key_point"]
         result.pred_instances.bboxes
         print([class_names[i] for i in result.pred_instances.labels])
@@ -161,7 +171,7 @@ def inference():
             data_sample=result,
             draw_gt = False,
             wait_time=0,
-            pred_score_thr=0.1
+            pred_score_thr=0.3
         )
 
         img = visualizer.get_image()
@@ -175,6 +185,6 @@ cfg.work_dir = "work_dirs/"
 
 #visualize_gt(cfg)
 
-Runner.from_cfg(cfg).train()
+#Runner.from_cfg(cfg).train()
 
 inference()

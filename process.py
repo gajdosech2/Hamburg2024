@@ -43,7 +43,7 @@ def add_coco_detections(all_masks, image_id, coords, plane_centroids, coco_json)
                     kp_x + 15, kp_y + 15, 
                     kp_x - 15, kp_y + 15, ]
         
-        if False:
+        if KEYPOINTS:
             coco_json["annotations"].append({
                     "id": 1000000 + ANNOTATION_ID,
                     "image_id": image_id,
@@ -168,8 +168,9 @@ CY = 370.4816 / 2.0
 
 DEPTH_PATHS, RGB_PATHS, CAPS_PATHS = [], [], []
 ANNOTATION_ID = 1
-VAL_SCENES = [30, 220]
-SCENES_COUNT = 220
+VAL_SCENES = [30, 220, 330]
+SCENES_COUNT = 341
+KEYPOINTS = True
 
 for j in range(SCENES_COUNT):
     if not os.path.isdir(f"dataset/scene_{j+1}_caps/"):
@@ -185,15 +186,14 @@ for j in range(SCENES_COUNT):
 
 process_dataset('coco_annotations_train.json')
 
-
 DEPTH_PATHS, RGB_PATHS, CAPS_PATHS = [], [], []
 
 for j in VAL_SCENES:
-    if not os.path.isdir(f"dataset/scene_{j+1}_caps/"):
+    if not os.path.isdir(f"dataset/scene_{j}_caps/"):
         continue
     for i in range(25):
-        DEPTH_PATHS.append(f"dataset/scene_{j+1}_caps/head_depth_img/{i}.npy")
-        RGB_PATHS.append(f"dataset/scene_{j+1}_transparent/head_frame_img/{i}.png")
-        CAPS_PATHS.append(f"dataset/scene_{j+1}_caps/head_frame_img/{i}.png")
+        DEPTH_PATHS.append(f"dataset/scene_{j}_caps/head_depth_img/{i}.npy")
+        RGB_PATHS.append(f"dataset/scene_{j}_transparent/head_frame_img/{i}.png")
+        CAPS_PATHS.append(f"dataset/scene_{j}_caps/head_frame_img/{i}.png")
 
 process_dataset('coco_annotations_val.json')
