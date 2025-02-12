@@ -53,8 +53,8 @@ from mmengine.visualization import TensorboardVisBackend, WandbVisBackend, Neptu
 
 backend_args = None
 data_root = "/home/g/gajdosech2/Hamburg2024/"
-train_annotations_file = "coco_annotations_train.json"
-test_annotations_file = "coco_annotations_val.json"
+train_annotations_file = "coco_annotations_train_data_3_frag_nokp.json"
+test_annotations_file = "coco_annotations_val_data_3_frag_nokp.json"
 train_images_dir = ""
 test_images_dir = ""
 

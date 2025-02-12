@@ -55,8 +55,8 @@ from utils.rtmdet_ins_heat_head import RTMDetHeatInsSepBNHead
 
 backend_args = None
 data_root = "/home/g/gajdosech2/Hamburg2024/"
-train_annotations_file = "coco_annotations_train.json"
-test_annotations_file = "coco_annotations_val.json"
+train_annotations_file = "coco_annotations_train_data_3_frag_wkp.json"
+test_annotations_file = "coco_annotations_val_data_3_frag_wkp.json"
 train_images_dir = ""
 test_images_dir = ""
 

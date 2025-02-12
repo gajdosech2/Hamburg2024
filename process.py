@@ -14,14 +14,14 @@ from utils.geometry import *
 from utils.thresholding import *
 
 
-def add_coco_detections(all_masks, image_id, coords, plane_centroids, coco_json):
+def add_coco_detections(coco_json, all_masks, image_id, coords, plane_centroids, mask_shape, width_threshold, keypoints):
     global ANNOTATION_ID
     for mask_id, mask in enumerate(all_masks):
         mask = mask.astype(np.uint8)
-        mask = cv2.resize(mask, (1280, 720), interpolation = cv2.INTER_NEAREST)
+        mask = cv2.resize(mask, mask_shape, interpolation = cv2.INTER_NEAREST)
         x, y, w, h = cv2.boundingRect(mask.astype(np.uint8))
 
-        if w > 300 or w < 10: #Bad mask
+        if w > width_threshold or w < 10: #Bad mask
             continue
 
         polygons, area = binary_mask_to_polygon(mask)
@@ -43,7 +43,7 @@ def add_coco_detections(all_masks, image_id, coords, plane_centroids, coco_json)
                     kp_x + 15, kp_y + 15, 
                     kp_x - 15, kp_y + 15, ]
         
-        if KEYPOINTS:
+        if keypoints:
             coco_json["annotations"].append({
                     "id": 1000000 + ANNOTATION_ID,
                     "image_id": image_id,
@@ -120,10 +120,14 @@ def process_dataset(json_name):
         if labels.shape[0] == 0:
             continue
 
-        if int(caps_image_path.split("/")[-3].split("_")[1]) > 100:
+        scene_number = int(caps_image_path.split("/")[-3].split("_")[1])
+        if scene_number > 100:
             cap_color = PLASTIC_CAP
             dist_threshold = 45
             circle = True
+
+        if scene_number > 300:
+            circle = False
 
         coords = pixel_coordinates(outlier_cloud, labels, blob_heights, caps_image.copy(), cap_color, dist_threshold, cam_matrix, KNOWN_HEIGHTS)
         if len(coords) == 0:
@@ -136,6 +140,11 @@ def process_dataset(json_name):
         for i, (u, v, index, _, _, _) in enumerate(coords):
             print(f"Blob {i}: Pixel coordinates: ({u}, {v}), Name: {KNOWN_NAMES[int(index)]}")
 
+        # CREATE JSON CONTAINING EYES AND LEFT AND RIGHT VIEWS, based on reprojecting coords, it should contain the following:
+        # coco_json["images"].append info about the new rgb frams
+        # all_masks = segmentation_masks(ROOT_DIR, new_rgb_image, new_coords, new_centroids) use same coords for centroids
+        # add_coco_detections(all_masks, image_id, coords, plane_centroids, coco_json, (???, ???), ???, False) eye frames will use different resolution
+
         plane_centroids = project_points_to_plane([a, b, c, d], coords[:, 3:], rgb_image.copy(), cam_matrix)
         transformed_meshes = place_models(plane_centroids, a, b, c)
         all_masks = segmentation_masks(ROOT_DIR, rgb_image, coords, plane_centroids)
@@ -143,7 +152,7 @@ def process_dataset(json_name):
         axis_gizmo = o3d.geometry.TriangleMesh.create_coordinate_frame(size=0.1, origin=[0, 0, 0])
         o3d.visualization.draw_geometries([inlier_cloud, outlier_cloud, axis_gizmo] + transformed_meshes)
         
-        add_coco_detections(all_masks, image_id, coords, plane_centroids, coco_json)
+        add_coco_detections(coco_json, all_masks, image_id, coords, plane_centroids, (1280, 720), 340, KEYPOINTS)
         #mark_classes(coords[:, :3].astype(int), rgb_image, KNOWN_NAMES)
 
     with open(json_name, 'w') as f:
@@ -168,9 +177,45 @@ CY = 370.4816 / 2.0
 
 DEPTH_PATHS, RGB_PATHS, CAPS_PATHS = [], [], []
 ANNOTATION_ID = 1
-VAL_SCENES = [30, 220, 330]
+VAL_SCENES = [30, 145, 220, 325, 335]
 SCENES_COUNT = 341
+
 KEYPOINTS = True
+
+scenes_count = 0
+for j in range(SCENES_COUNT):
+    if not os.path.isdir(f"dataset/scene_{j+1}_caps/"):
+        continue
+    if j+1 == 6: # Shifted scene
+        continue
+    if j+1 in VAL_SCENES:
+        continue
+    scenes_count += 1 
+    for i in range(25):
+        DEPTH_PATHS.append(f"dataset/scene_{j+1}_caps/head_depth_img/{i}.npy")
+        RGB_PATHS.append(f"dataset/scene_{j+1}_transparent/head_frame_img/{i}.png")
+        CAPS_PATHS.append(f"dataset/scene_{j+1}_caps/head_frame_img/{i}.png")
+
+print(f"Scene Count: {scenes_count + len(VAL_SCENES)}")
+process_dataset('coco_annotations_train_data_3_frag_wkp.json')
+
+DEPTH_PATHS, RGB_PATHS, CAPS_PATHS = [], [], []
+
+for j in VAL_SCENES:
+    if not os.path.isdir(f"dataset/scene_{j}_caps/"):
+        continue
+    for i in range(25):
+        DEPTH_PATHS.append(f"dataset/scene_{j}_caps/head_depth_img/{i}.npy")
+        RGB_PATHS.append(f"dataset/scene_{j}_transparent/head_frame_img/{i}.png")
+        CAPS_PATHS.append(f"dataset/scene_{j}_caps/head_frame_img/{i}.png")
+
+process_dataset('coco_annotations_val_data_3_frag_wkp.json')
+
+
+############################################################################################################
+DEPTH_PATHS, RGB_PATHS, CAPS_PATHS = [], [], []
+ANNOTATION_ID = 1
+KEYPOINTS = False
 
 for j in range(SCENES_COUNT):
     if not os.path.isdir(f"dataset/scene_{j+1}_caps/"):
@@ -184,7 +229,7 @@ for j in range(SCENES_COUNT):
         RGB_PATHS.append(f"dataset/scene_{j+1}_transparent/head_frame_img/{i}.png")
         CAPS_PATHS.append(f"dataset/scene_{j+1}_caps/head_frame_img/{i}.png")
 
-process_dataset('coco_annotations_train.json')
+process_dataset('coco_annotations_train_data_3_frag_nokp.json')
 
 DEPTH_PATHS, RGB_PATHS, CAPS_PATHS = [], [], []
 
@@ -196,4 +241,4 @@ for j in VAL_SCENES:
         RGB_PATHS.append(f"dataset/scene_{j}_transparent/head_frame_img/{i}.png")
         CAPS_PATHS.append(f"dataset/scene_{j}_caps/head_frame_img/{i}.png")
 
-process_dataset('coco_annotations_val.json')
+process_dataset('coco_annotations_val_data_3_frag_nokp.json')

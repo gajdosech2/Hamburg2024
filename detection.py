@@ -181,10 +181,12 @@ def inference():
 
 CONFIG_FILE = 'config.py'
 cfg = Config.fromfile(CONFIG_FILE)
-cfg.work_dir = "work_dirs/"
-
+cfg.work_dir = "work_dir/"
+Runner.from_cfg(cfg).train()
 #visualize_gt(cfg)
+#inference()
 
-#Runner.from_cfg(cfg).train()
-
-inference()
+CONFIG_FILE = 'heat.py'
+cfg = Config.fromfile(CONFIG_FILE)
+cfg.work_dir = "work_dirs/"
+Runner.from_cfg(cfg).train()
