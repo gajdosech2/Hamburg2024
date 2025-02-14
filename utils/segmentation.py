@@ -88,7 +88,7 @@ def segmentation_masks(root_dir, rgb_image, coords, centroids):
     sam2_checkpoint = root_dir + "/segment-anything-2/checkpoints/sam2.1_hiera_large.pt"
     model_cfg = "configs/sam2.1/sam2.1_hiera_l.yaml"
 
-    sam2_model = build_sam2(model_cfg, sam2_checkpoint, device=torch.device("cpu"))
+    sam2_model = build_sam2(model_cfg, sam2_checkpoint, device=torch.device("cuda:1"))
     predictor = SAM2ImagePredictor(sam2_model)
 
     predictor.set_image(rgb_image)

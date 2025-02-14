@@ -12,6 +12,7 @@ os.chdir(ROOT_DIR + "/Hamburg2024")
 from utils.segmentation import *
 from utils.geometry import *
 from utils.thresholding import *
+from utils.projection import eye_views
 
 
 def add_coco_detections(coco_json, all_masks, image_id, coords, plane_centroids, mask_shape, width_threshold, keypoints):
@@ -75,7 +76,8 @@ def process_dataset(json_name):
     dist_threshold = 150
     circle = False
 
-    for image_id, (rgb_image_path, depth_image_path, caps_image_path) in enumerate(zip(RGB_PATHS, DEPTH_PATHS, CAPS_PATHS)):
+    image_id = 0
+    for rgb_image_path, depth_image_path, caps_image_path in zip(RGB_PATHS, DEPTH_PATHS, CAPS_PATHS):
         print(rgb_image_path)
         rgb_image = Image.open(rgb_image_path)
         rgb_image = np.array(rgb_image)
@@ -140,10 +142,10 @@ def process_dataset(json_name):
         for i, (u, v, index, _, _, _) in enumerate(coords):
             print(f"Blob {i}: Pixel coordinates: ({u}, {v}), Name: {KNOWN_NAMES[int(index)]}")
 
-        # CREATE JSON CONTAINING EYES AND LEFT AND RIGHT VIEWS, based on reprojecting coords, it should contain the following:
-        # coco_json["images"].append info about the new rgb frams
-        # all_masks = segmentation_masks(ROOT_DIR, new_rgb_image, new_coords, new_centroids) use same coords for centroids
-        # add_coco_detections(all_masks, image_id, coords, plane_centroids, coco_json, (???, ???), ???, False) eye frames will use different resolution
+        left_masks, right_masks = eye_views(coco_json, rgb_image_path, image_id, coords)
+        #add_coco_detections(left_masks, image_id + 1, coords, coords, coco_json, (1920, 1440), 520, False)
+        #add_coco_detections(right_masks, image_id + 2, coords, coords, coco_json, (1920, 1440), 520, False)
+        image_id += 3
 
         plane_centroids = project_points_to_plane([a, b, c, d], coords[:, 3:], rgb_image.copy(), cam_matrix)
         transformed_meshes = place_models(plane_centroids, a, b, c)
@@ -197,7 +199,7 @@ for j in range(SCENES_COUNT):
         CAPS_PATHS.append(f"dataset/scene_{j+1}_caps/head_frame_img/{i}.png")
 
 print(f"Scene Count: {scenes_count + len(VAL_SCENES)}")
-process_dataset('coco_annotations_train_data_3_frag_wkp.json')
+#process_dataset('coco_annotations_train_data_3_frag_wkp.json')
 
 DEPTH_PATHS, RGB_PATHS, CAPS_PATHS = [], [], []
 
@@ -209,7 +211,7 @@ for j in VAL_SCENES:
         RGB_PATHS.append(f"dataset/scene_{j}_transparent/head_frame_img/{i}.png")
         CAPS_PATHS.append(f"dataset/scene_{j}_caps/head_frame_img/{i}.png")
 
-process_dataset('coco_annotations_val_data_3_frag_wkp.json')
+#process_dataset('coco_annotations_val_data_3_frag_wkp.json')
 
 
 ############################################################################################################
@@ -229,7 +231,7 @@ for j in range(SCENES_COUNT):
         RGB_PATHS.append(f"dataset/scene_{j+1}_transparent/head_frame_img/{i}.png")
         CAPS_PATHS.append(f"dataset/scene_{j+1}_caps/head_frame_img/{i}.png")
 
-process_dataset('coco_annotations_train_data_3_frag_nokp.json')
+#process_dataset('coco_annotations_train_data_3_frag_nokp.json')
 
 DEPTH_PATHS, RGB_PATHS, CAPS_PATHS = [], [], []
 
