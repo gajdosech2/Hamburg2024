@@ -142,14 +142,14 @@ def process_dataset(json_name):
         for i, (u, v, index, _, _, _) in enumerate(coords):
             print(f"Blob {i}: Pixel coordinates: ({u}, {v}), Name: {KNOWN_NAMES[int(index)]}")
 
-        left_masks, right_masks = eye_views(coco_json, rgb_image_path, image_id, coords)
-        #add_coco_detections(left_masks, image_id + 1, coords, coords, coco_json, (1920, 1440), 520, False)
-        #add_coco_detections(right_masks, image_id + 2, coords, coords, coco_json, (1920, 1440), 520, False)
-        image_id += 3
-
         plane_centroids = project_points_to_plane([a, b, c, d], coords[:, 3:], rgb_image.copy(), cam_matrix)
         transformed_meshes = place_models(plane_centroids, a, b, c)
         all_masks = segmentation_masks(ROOT_DIR, rgb_image, coords, plane_centroids)
+
+        left_masks, right_masks, left_centroids, right_centroids = eye_views(coco_json, rgb_image_path, image_id, coords, plane_centroids)
+        add_coco_detections(coco_json, left_masks, image_id + 1, coords, left_centroids, (1920, 1440), 520, False)
+        add_coco_detections(coco_json, right_masks, image_id + 2, coords, right_centroids, (1920, 1440), 520, False)
+        image_id += 3
 
         axis_gizmo = o3d.geometry.TriangleMesh.create_coordinate_frame(size=0.1, origin=[0, 0, 0])
         o3d.visualization.draw_geometries([inlier_cloud, outlier_cloud, axis_gizmo] + transformed_meshes)
@@ -211,7 +211,7 @@ for j in VAL_SCENES:
         RGB_PATHS.append(f"dataset/scene_{j}_transparent/head_frame_img/{i}.png")
         CAPS_PATHS.append(f"dataset/scene_{j}_caps/head_frame_img/{i}.png")
 
-#process_dataset('coco_annotations_val_data_3_frag_wkp.json')
+process_dataset('coco_annotations_val_multi.json')
 
 
 ############################################################################################################
@@ -243,4 +243,4 @@ for j in VAL_SCENES:
         RGB_PATHS.append(f"dataset/scene_{j}_transparent/head_frame_img/{i}.png")
         CAPS_PATHS.append(f"dataset/scene_{j}_caps/head_frame_img/{i}.png")
 
-process_dataset('coco_annotations_val_data_3_frag_nokp.json')
+#process_dataset('coco_annotations_val_data_3_frag_nokp.json')
