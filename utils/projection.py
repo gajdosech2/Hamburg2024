@@ -13,7 +13,7 @@ from segmentation import segmentation_masks
 
 
 
-def eye_views(coco_json, head_image_path, image_id, coords, plane_centroids):
+def eye_views(coco_json, head_image_path, image_id, coords, plane_centroids, predictor):
     split_path = head_image_path.split("/")
     scene_id = split_path[-3].split("_")[1]
     view_id = split_path[-1].split(".")[0]
@@ -75,7 +75,7 @@ def eye_views(coco_json, head_image_path, image_id, coords, plane_centroids):
 
         left_pixel, _ = left_image_processor.coordinate_to_pixel(img=left_image, coordinate=coordinate, camera_tfrm=left_camera_tfrm, verbose=False)
         cv2.circle(left_vis_img, (int(left_pixel[0]), int(left_pixel[1])), radius=5, color=(0, 255, 0), thickness=4) 
-        cv2.imwrite('/home/g/gajdosech2/Hamburg2024/work_dirs/debug/debug_left_coord.png', left_vis_img)
+        #cv2.imwrite('/home/g/gajdosech2/Hamburg2024/work_dirs/debug/debug_left_coord.png', left_vis_img)
 
         right_pixel, _ = right_image_processor.coordinate_to_pixel(img=right_image, coordinate=coordinate, camera_tfrm=right_camera_tfrm, verbose=False)
         cv2.circle(right_vis_img, (int(right_pixel[0]), int(right_pixel[1])), radius=5, color=(0, 255, 0), thickness=4) 
@@ -97,7 +97,7 @@ def eye_views(coco_json, head_image_path, image_id, coords, plane_centroids):
 
         left_pixel, _ = left_image_processor.coordinate_to_pixel(img=left_image, coordinate=coordinate, camera_tfrm=left_camera_tfrm, verbose=False)
         cv2.circle(left_vis_img, (int(left_pixel[0]), int(left_pixel[1])), radius=5, color=(255, 255, 0), thickness=4) 
-        cv2.imwrite('/home/g/gajdosech2/Hamburg2024/work_dirs/debug/debug_left_keypoint.png', left_vis_img)
+        #cv2.imwrite('/home/g/gajdosech2/Hamburg2024/work_dirs/debug/debug_left_keypoint.png', left_vis_img)
 
         right_pixel, _ = right_image_processor.coordinate_to_pixel(img=right_image, coordinate=coordinate, camera_tfrm=right_camera_tfrm, verbose=False)
         cv2.circle(right_vis_img, (int(right_pixel[0]), int(right_pixel[1])), radius=5, color=(255, 255, 0), thickness=4) 
@@ -109,8 +109,8 @@ def eye_views(coco_json, head_image_path, image_id, coords, plane_centroids):
     left_image = cv2.resize(left_image, (1920//4, 1440//4))
     right_image = cv2.resize(right_image, (1920//4, 1440//4))
     
-    left_masks = segmentation_masks("/home/g/gajdosech2/", left_image, left_coords, left_centroids)
-    right_masks = segmentation_masks("/home/g/gajdosech2/", right_image, right_coords, right_centroids)
+    left_masks = segmentation_masks(left_image, left_coords, left_centroids, predictor)
+    right_masks = segmentation_masks(right_image, right_coords, right_centroids, predictor)
 
     return left_masks, right_masks, left_centroids, right_centroids
         

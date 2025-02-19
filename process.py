@@ -5,6 +5,7 @@ import os
 import json
 import cv2
 from PIL import Image
+from ultralytics import YOLO
 
 ROOT_DIR = "/home/g/gajdosech2/"
 os.chdir(ROOT_DIR + "/Hamburg2024")
@@ -71,6 +72,12 @@ def process_dataset(json_name):
                        {"id": 7, "name": "key_point"}] 
     }
 
+    yolo_model = YOLO("yolov8l-worldv2.pt") 
+    sam2_checkpoint = ROOT_DIR + "/segment-anything-2/checkpoints/sam2.1_hiera_large.pt"
+    model_cfg = "configs/sam2.1/sam2.1_hiera_l.yaml"
+    sam2_model = build_sam2(model_cfg, sam2_checkpoint, device=torch.device("cuda:1"))
+    sam_predictor = SAM2ImagePredictor(sam2_model)
+
     cam_matrix = np.array([[FX, 0, CX], [0, FY, CY], [0,  0,  1]])
     cap_color = WOOD_CAP
     dist_threshold = 150
@@ -135,24 +142,25 @@ def process_dataset(json_name):
         if len(coords) == 0:
             continue
 
-        coords = filter_coords_yolo(coords, rgb_image, caps_image, circle)
+        coords = filter_coords_yolo(coords, rgb_image, caps_image, yolo_model, circle)
         if len(coords) == 0:
             continue
 
         for i, (u, v, index, _, _, _) in enumerate(coords):
             print(f"Blob {i}: Pixel coordinates: ({u}, {v}), Name: {KNOWN_NAMES[int(index)]}")
 
-        plane_centroids = project_points_to_plane([a, b, c, d], coords[:, 3:], rgb_image.copy(), cam_matrix)
-        transformed_meshes = place_models(plane_centroids, a, b, c)
-        all_masks = segmentation_masks(ROOT_DIR, rgb_image, coords, plane_centroids)
 
-        left_masks, right_masks, left_centroids, right_centroids = eye_views(coco_json, rgb_image_path, image_id, coords, plane_centroids)
+        plane_centroids = project_points_to_plane([a, b, c, d], coords[:, 3:], rgb_image.copy(), cam_matrix)
+        #transformed_meshes = place_models(plane_centroids, a, b, c)
+        all_masks = segmentation_masks(rgb_image, coords, plane_centroids, sam_predictor)
+
+        left_masks, right_masks, left_centroids, right_centroids = eye_views(coco_json, rgb_image_path, image_id, coords, plane_centroids, sam_predictor)
         add_coco_detections(coco_json, left_masks, image_id + 1, coords, left_centroids, (1920, 1440), 520, False)
         add_coco_detections(coco_json, right_masks, image_id + 2, coords, right_centroids, (1920, 1440), 520, False)
         image_id += 3
 
-        axis_gizmo = o3d.geometry.TriangleMesh.create_coordinate_frame(size=0.1, origin=[0, 0, 0])
-        o3d.visualization.draw_geometries([inlier_cloud, outlier_cloud, axis_gizmo] + transformed_meshes)
+        #axis_gizmo = o3d.geometry.TriangleMesh.create_coordinate_frame(size=0.1, origin=[0, 0, 0])
+        #o3d.visualization.draw_geometries([inlier_cloud, outlier_cloud, axis_gizmo] + transformed_meshes)
         
         add_coco_detections(coco_json, all_masks, image_id, coords, plane_centroids, (1280, 720), 340, KEYPOINTS)
         #mark_classes(coords[:, :3].astype(int), rgb_image, KNOWN_NAMES)

@@ -1,4 +1,3 @@
-from ultralytics import YOLO
 import cv2
 import torch
 import numpy as np
@@ -13,8 +12,7 @@ from sam2.build_sam import build_sam2 # type: ignore
 from sam2.sam2_image_predictor import SAM2ImagePredictor # type: ignore
 
 
-def filter_coords_yolo(coords, rgb_image, caps_image, circle=False):
-    model = YOLO("yolov8l-worldv2.pt") 
+def filter_coords_yolo(coords, rgb_image, caps_image, model, circle=False):
     model.set_classes(["glass", ])
     results = model.predict(rgb_image, conf=0.001)
     results[0].save("work_dirs/debug/debug_yolo_glass.png")
@@ -84,15 +82,8 @@ def show_masks(image, masks, scores, borders=True):
     return mask_image
 
         
-def segmentation_masks(root_dir, rgb_image, coords, centroids):
-    sam2_checkpoint = root_dir + "/segment-anything-2/checkpoints/sam2.1_hiera_large.pt"
-    model_cfg = "configs/sam2.1/sam2.1_hiera_l.yaml"
-
-    sam2_model = build_sam2(model_cfg, sam2_checkpoint, device=torch.device("cuda:1"))
-    predictor = SAM2ImagePredictor(sam2_model)
-
+def segmentation_masks(rgb_image, coords, centroids, predictor):
     predictor.set_image(rgb_image)
-
     all_masks = []
     for i, cap in enumerate(coords):
         masks, scores, _ = predictor.predict(
@@ -100,11 +91,11 @@ def segmentation_masks(root_dir, rgb_image, coords, centroids):
             point_labels=np.array([1, 1]),
             multimask_output=False,
         )
-
         all_masks.append(masks[0])
-        mask_image = show_masks(rgb_image, masks, scores, borders=True)
-        cv2.imwrite("work_dirs/debug/debug_mask" + str(i) + ".png", np.clip(rgb_image + mask_image[:, :, :3] * 100000, 0, 255))
+        #mask_image = show_masks(rgb_image, masks, scores, borders=True)
+        #cv2.imwrite("work_dirs/debug/debug_mask" + str(i) + ".png", np.clip(rgb_image + mask_image[:, :, :3] * 100000, 0, 255))
 
+    torch.cuda.empty_cache() 
     return all_masks
 
 
