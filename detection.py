@@ -15,6 +15,7 @@ from mmdet.utils import setup_cache_size_limit_of_dynamo
 import cv2
 import os.path as osp
 import os
+import argparse
 
 ROOT_DIR = "/home/g/gajdosech2/"
 #ROOT_DIR = "/export/home/gajdosec/"
@@ -130,7 +131,7 @@ def visualize_gt(cfg):
 
 
 def inference():
-    checkpoint_file = ROOT_DIR + '/Hamburg2024/checkpoint_nokp.pth'
+    checkpoint_file = ROOT_DIR + '/Hamburg2024/checkpoint_wkp.pth'
     model = init_detector(CONFIG_FILE, checkpoint_file, device='cpu') 
     visualizer = VISUALIZERS.build(model.cfg.visualizer)
     visualizer.dataset_meta = model.dataset_meta
@@ -179,14 +180,24 @@ def inference():
         cv2.imwrite(f"work_dirs/pred/prediction{i}.png", img)
 
 
-CONFIG_FILE = 'config.py'
-cfg = Config.fromfile(CONFIG_FILE)
-cfg.work_dir = "work_dir/"
-Runner.from_cfg(cfg).train()
-#visualize_gt(cfg)
-#inference()
 
 CONFIG_FILE = 'heat.py'
 cfg = Config.fromfile(CONFIG_FILE)
 cfg.work_dir = "work_dirs/"
-Runner.from_cfg(cfg).train()
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="RTMDet for transparent object detection training or inference.")
+    parser.add_argument("--train", action="store_true", help="Train the detection model.")
+    parser.add_argument("--test", action="store_true", help="Inference the detection model.")
+    parser.add_argument("--vis", action="store_true", help="Visualize sample of ground truth data from the config.")
+
+    args = parser.parse_args()
+
+    if args.train:
+        Runner.from_cfg(cfg).train() 
+    if args.test:
+        inference()
+    if args.vis:
+        visualize_gt(cfg)
+    else:
+        print("Please specify mode with command line arguments.")

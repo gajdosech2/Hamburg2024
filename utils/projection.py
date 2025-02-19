@@ -46,7 +46,6 @@ def eye_views(coco_json, head_image_path, image_id, coords, plane_centroids):
         right_image = cv2.resize(right_image, (1920, 1440))
         cv2.imwrite(right_eye_path, right_image)
 
-    #replace image to be in that resolution?
     coco_json["images"].append({
         "id": image_id + 1,
         "file_name": left_eye_path,

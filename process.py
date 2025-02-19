@@ -199,7 +199,7 @@ for j in range(SCENES_COUNT):
         CAPS_PATHS.append(f"dataset/scene_{j+1}_caps/head_frame_img/{i}.png")
 
 print(f"Scene Count: {scenes_count + len(VAL_SCENES)}")
-#process_dataset('coco_annotations_train_data_3_frag_wkp.json')
+process_dataset('coco_annotations_train_multi.json')
 
 DEPTH_PATHS, RGB_PATHS, CAPS_PATHS = [], [], []
 

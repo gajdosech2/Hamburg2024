@@ -13,8 +13,8 @@ image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
 
 # Our pre-trained RTMDet Model
 heatmap = True
-threshold = 0.4
-rtmdet_model = init_detector(ROOT_DIR + 'heat.py', ROOT_DIR + 'checkpoint_wkp.pth', device='cpu') 
+threshold = 0.35
+rtmdet_model = init_detector(ROOT_DIR + 'heat.py', ROOT_DIR + 'checkpoint.pth', device='cpu') 
 #rtmdet_model = init_detector(ROOT_DIR + 'config.py', ROOT_DIR + 'checkpoint_nokp.pth', device='cpu') 
 visualizer = VISUALIZERS.build(rtmdet_model.cfg.visualizer)
 visualizer.dataset_meta = rtmdet_model.dataset_meta

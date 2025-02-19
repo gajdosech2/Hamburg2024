@@ -127,10 +127,10 @@ class RTMDetHeatInsSepBNHead(RTMDetInsSepBNHead):
                 except:
                     continue
 
-            #heatmap_tensor = torch.zeros(1, heatmap.shape[0], heatmap.shape[1], device=results.bboxes.device)
-            #heatmap_tensor[0] = torch.from_numpy(heatmap).float().to(results.bboxes.device)
-            #heatmap_tensor = heatmap_tensor.repeat(len(results.bboxes), 1, 1)
-            #results.heatmap = heatmap_tensor
+            heatmap_tensor = torch.zeros(1, heatmap.shape[0], heatmap.shape[1], device=results.bboxes.device)
+            heatmap_tensor[0] = torch.from_numpy(heatmap).float().to(results.bboxes.device)
+            heatmap_tensor = heatmap_tensor.repeat(len(results.bboxes), 1, 1)
+            results.heatmap = heatmap_tensor
             
 
             results = results[results.labels < cid]
